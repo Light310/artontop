@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+</head>
+<body class="bg-home">
+
+    <nav class="home-nav">
+        <a href="{{ url_for('home') }}">Главная</a>
+        <a href="#">Профиль</a>
+        <a href="#">Настройки</a>
+        <a href="#">Поиск</a>
+        <a href="{{ url_for('create_pub') }}" style="font-weight: bold; color: #ffdae0;">+ Пост</a>
+    </nav>
+
+    <div class="feed-container">
+        <h2 class="row-title">Все</h2>
+        <div class="art-bar">
+            {% for pub in all_pubs %}
+            <div class="art-item">
+                <img src="/static/uploads/{{ pub.image }}">
+            </div>
+            {% endfor %}
+            <button class="btn-more">ещё</button>
+        </div>
+
+        {% for tag in top_tags %}
+        <h2 class="row-title">#{{ tag }}</h2>
+        <div class="art-bar">
+            {% for pub in all_pubs %}
+                {% if tag in pub.hashtags %}
+                <div class="art-item">
+                    <img src="/static/uploads/{{ pub.image }}">
+                </div>
+                {% endif %}
+            {% endfor %}
+            <button class="btn-more">ещё</button>
+        </div>
+        {% endfor %}
+    </div>
+
+</body>
+</html>

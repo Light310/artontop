@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="screen bg-authorized">
+    <div class="form-container" style="background: rgba(255,255,255,0.1); padding: 30px; border-radius: 10px;">
+        <h1 style="color:white; font-size: 30px;">Новая публикация</h1>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label style="color:white">Изображение</label>
+                <input type="file" name="image" required>
+            </div>
+            <div class="form-group">
+                <label style="color:white">Описание</label>
+                <textarea name="desc" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label style="color:white">Хештеги (через пробел)</label>
+                <input type="text" name="tags" placeholder="#art #drawing">
+            </div>
+            <div class="form-group">
+                <label style="color:white">Тип</label>
+                <select name="type">
+                    <option value="Drawing">Drawing</option>
+                    <option value="Tutorial">Tutorial</option>
+                    <option value="Pose">Pose</option>
+                    <option value="Gamma">Gamma</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-black">Опубликовать</button>
+        </form>
+        <a href="{{ url_for('home') }}" style="color:white; display:block; margin-top:10px;">Назад</a>
+    </div>
+</div>
+{% endblock %}

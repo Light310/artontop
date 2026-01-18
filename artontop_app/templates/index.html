@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <title>ArtOnTop - Welcome</title>
+</head>
+<body>
+    <div id="welcome-screen" class="screen bg-main">
+        <h1 class="title-hero">ART ON TOP</h1>
+        <p class="subtitle-hero">Арт пространство</p>
+    </div>
+
+    <script>
+        const authUrl = "{{ url_for('auth') }}";
+
+        // Функция для перехода
+        function redirectToAuth() {
+            window.location.href = authUrl;
+        }
+
+        // 1. Переход по клику на весь экран
+        document.getElementById('welcome-screen').addEventListener('click', redirectToAuth);
+
+        // 2. Переход по истечении 3 секунд (3000 миллисекунд)
+        setTimeout(redirectToAuth, 3000);
+    </script>
+</body>
+</html>

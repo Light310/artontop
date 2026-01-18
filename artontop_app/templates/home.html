@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <title>ArtOnTop - Главная</title>
+</head>
+<body class="bg-home">
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <header class="top-header">
+        <a href="{{ url_for('create_pub') }}" class="btn-new-pub-glam">
+            <span>+</span> Новая публикация
+        </a>
+
+        <form action="{{ url_for('home') }}" method="GET" class="search-form">
+            <input type="hidden" name="pub_type" value="{{ active_type }}">
+            
+            <input type="text" name="search" class="search-input" placeholder="#поиск по хештегу..." 
+                   value="{{ search_query if search_query and search_query != 'Все' else '' }}">
+            
+            <button type="submit" class="btn-search">Поиск</button>
+            
+            {% if mode == 'grid' or active_type != 'Все типы' %}
+                <a href="{{ url_for('home') }}" class="btn-reset">Сбросить</a>
+            {% else %}
+                <span class="btn-reset disabled">Сбросить</span>
+            {% endif %}
+        </form>
+
+        <div style="width: 200px;"></div> 
+    </header>
+
+    <div class="type-tabs">
+        <a href="{{ url_for('home', pub_type='Все типы') }}" 
+           class="tab-item {{ 'active' if active_type == 'Все типы' }}">Все типы</a>
+        
+        {% for t in content_types %}
+        <a href="{{ url_for('home', pub_type=t) }}" 
+           class="tab-item {{ 'active' if active_type == t }}">{{ t }}</a>
+        {% endfor %}
+    </div>
+
+    <div class="feed-container">
+        
+        {% if mode == 'grid' %}
+            <h2 class="row-title">
+                Результаты: {{ search_query if search_query else 'Все' }} 
+                <span style="font-size: 0.6em; opacity: 0.7;">({{ active_type }})</span>
+            </h2>
+            
+            <div class="grid-layout">
+                {% for pub in pubs %}
+                <div class="art-item grid-item" onclick="openPost({{ pub.id }})">
+                    <img src="/static/uploads/{{ pub.image }}" alt="{{ pub.title }}">
+                    <div class="item-overlay">{{ pub.title }}</div>
+                </div>
+                {% else %}
+                <p style="color:white; grid-column: 1/-1; text-align: center; padding: 50px;">Ничего не найдено.</p>
+                {% endfor %}
+            </div>
+
+            {% if next_page %}
+            <div class="pagination-area">
+                <a href="{{ url_for('home', search=search_query, pub_type=active_type, page=next_page) }}" class="btn-arrow-down">
+                    ▼
+                </a>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <h2 class="row-title">Свежее в категории: {{ active_type }}</h2>
+            <div class="row-wrapper" style="position: relative; display: flex; align-items: center;">
+                <div class="art-bar" id="bar-fresh">
+                    {% for pub in all_pubs[:20] %} <div class="art-item" onclick="openPost({{ pub.id }})">
+                        <img src="/static/uploads/{{ pub.image }}">
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="{{ url_for('home', search='Все', pub_type=active_type) }}" class="btn-more-outer" id="btn-fresh">ещё</a>
+            </div>
+
+            {% for tag in top_tags %}
+            <h2 class="row-title">#{{ tag }}</h2>
+            <div class="row-wrapper" style="position: relative; display: flex; align-items: center;">
+                <div class="art-bar" id="bar-{{ tag }}">
+                    {% set count = namespace(value=0) %}
+                    {% for pub in all_pubs %}
+                        {% if tag in pub.hashtags and count.value < 20 %} <div class="art-item" onclick="openPost({{ pub.id }})">
+                            <img src="/static/uploads/{{ pub.image }}">
+                        </div>
+                        {% set count.value = count.value + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <a href="{{ url_for('home', search=tag, pub_type=active_type) }}" class="btn-more-outer" id="btn-{{ tag }}">ещё</a>
+            </div>
+            {% endfor %}
+            
+        {% endif %}
+    </div>
+
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="modal-body">
+                <div class="modal-image-container">
+                    <img id="modalImage" src="" alt="Artwork">
+                </div>
+                
+                <div class="modal-info">
+                    <h1 id="modalTitle" style="margin-top:0; color: #333;"></h1>
+                    <h3 id="modalAuthor" style="color: #7E7482; margin-bottom: 20px;"></h3>
+                    
+                    <div class="scrollable-info">
+                        <p id="modalDesc" style="line-height: 1.6;"></p>
+                        <p id="modalTags" style="color: #7E7482; font-weight: bold; margin-top: 15px;"></p>
+                    </div>
+
+                    <div id="ownerControls" class="owner-panel" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">Редактировать публикацию</h4>
+                        <form id="editForm" method="POST">
+                            <input type="text" name="title" id="editTitle" placeholder="Заголовок" class="input-field">
+                            <textarea name="description" id="editDesc" placeholder="Описание" class="input-field" rows="3"></textarea>
+                            <input type="text" name="hashtags" id="editTags" placeholder="Теги (через запятую)" class="input-field">
+                            
+                            <select name="pub_type" id="editType" class="input-field">
+                                {% for t in content_types %}
+                                <option value="{{ t }}">{{ t }}</option>
+                                {% endfor %}
+                            </select>
+
+                            <div style="display:flex; gap:10px; margin-top:10px;">
+                                <button type="submit" class="btn-search">Сохранить</button>
+                                <a id="deleteLink" href="" class="delete-btn" 
+                                   onclick="return confirm('Вы уверены, что хотите удалить этот пост навсегда?')">Удалить</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('postModal');
+
+        // Функция проверки переполнения для отображения кнопки "Еще"
+        function checkOverflow() {
+            const bars = document.querySelectorAll('.art-bar');
+            bars.forEach(bar => {
+                const btn = bar.parentElement.querySelector('.btn-more-outer');
+                if (btn) {
+                    // Если ширина контента больше ширины видимой области, показываем кнопку
+                    if (bar.scrollWidth > bar.clientWidth) {
+                        btn.style.display = 'flex';
+                    } else {
+                        btn.style.display = 'none';
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('load', checkOverflow);
+        window.addEventListener('resize', checkOverflow);
+
+        function openPost(id) {
+            fetch(`/get_post/${id}`)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
+                    document.getElementById('modalTitle').innerText = data.title || "Без названия";
+                    document.getElementById('modalAuthor').innerText = `Автор: ${data.author_name}`;
+                    document.getElementById('modalDesc').innerText = data.description;
+                    document.getElementById('modalTags').innerText = data.hashtags;
+                    
+                    const controls = document.getElementById('ownerControls');
+                    
+                    if(data.is_owner) {
+                        controls.style.display = 'block';
+                        document.getElementById('editForm').action = `/edit/${data.id}`;
+                        document.getElementById('editTitle').value = data.title || "";
+                        document.getElementById('editDesc').value = data.description;
+                        document.getElementById('editTags').value = data.hashtags;
+                        document.getElementById('editType').value = data.pub_type;
+                        document.getElementById('deleteLink').href = `/delete/${data.id}`;
+                    } else {
+                        controls.style.display = 'none';
+                    }
+                    
+                    modal.style.display = 'block';
+                    document.body.style.overflow = 'hidden';
+                });
+        }
+
+        document.querySelector('.close-modal').onclick = () => {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        };
+
+        window.onclick = (e) => {
+            if(e.target == modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,579 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700&display=swap');
+
+
+/* --- GLOBAL RESET & BASICS --- */
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
+/* --- LAYOUT UTILITIES --- */
+/* The base container for full-screen pages */
+.screen {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* --- BACKGROUNDS --- */
+/* Fixed typo: .pg -> .jpg (assuming jpg) */
+.bg-main { background: url('/static/images/main_page.jpg') no-repeat center center/cover; cursor: pointer; }
+.bg-auth { background: url('/static/images/authorization_page.jpg') no-repeat center center/cover; }
+.bg-login { background: url('/static/images/login_page.png') no-repeat center center/cover; }
+.bg-reg   { background: url('/static/images/registration_page.png') no-repeat center center/cover; } /* Fixed Typo */
+.bg-authorized { background: linear-gradient(135deg, #4e4376, #2b5876); } /* Added missing bg */
+
+/* Home Page Gradient */
+.bg-home {
+    background: #9979a8; /* Глубокий темно-синий */
+    background-attachment: fixed;
+    min-height: 100vh;
+    color: white;
+}
+
+/* --- TYPOGRAPHY --- */
+.title-page {
+    font-size: 48px;
+    color: white;
+    margin-bottom: 40px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.title-hero {
+    font-size: 64px;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    letter-spacing: 2px;
+}
+
+.subtitle-hero {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-top: 10px;
+}
+
+.title-form {
+    font-size: 28px;
+    color: #333;
+    margin-bottom: 25px;
+    text-align: center;
+    font-weight: 700;
+}
+
+.title-black {
+    color: #000;
+}
+
+/* --- BUTTONS --- */
+.btn-pill {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 2px solid white;
+    color: white;
+    padding: 12px 40px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-size: 18px;
+    margin: 10px;
+    transition: all 0.3s ease;
+}
+
+.btn-pill:hover {
+    background: white;
+    color: #333;
+}
+
+.btn-submit, .btn-black {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: #333;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background 0.3s;
+}
+
+.btn-submit:hover, .btn-black:hover {
+    background: #555;
+}
+
+/* --- FORMS --- */
+.form-box, .form-container {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #444;
+    font-size: 14px;
+}
+
+.form-group input, 
+.form-group textarea, 
+.form-group select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: inherit;
+    width: 100%;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: #7E7482;
+}
+
+/* --- HOME PAGE NAVIGATION --- */
+.home-nav {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    padding: 40px 0;
+}
+.home-nav a { 
+    color: white; 
+    text-decoration: none; 
+    font-size: 18px; 
+    opacity: 0.8; 
+    transition: opacity 0.3s;
+}
+.home-nav a:hover { opacity: 1; }
+
+/* --- FEED / ARTWORK ROWS --- */
+.feed-container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-bottom: 50px;
+}
+
+.row-title {
+    font-size: 28px;
+    font-weight: 300;
+    margin: 30px 0 15px 0;
+    color: white;
+}
+
+.art-bar {
+    background: rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    gap: 15px;
+    overflow-x: auto;
+    border-radius: 12px;
+    scrollbar-width: none; /* Firefox */
+}
+.art-bar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
+
+.art-item {
+    flex: 0 0 150px;
+    height: 150px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ccc;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.art-item:hover {
+    transform: scale(1.05);
+}
+
+.art-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.btn-more {
+    min-width: 50px;
+    height: 50px;
+    background: white;
+    border-radius: 50%;
+    border: none;
+    color: #7E7482;
+    font-weight: bold;
+    cursor: pointer;
+    margin-left: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+
+/* --- НОВЫЕ СТИЛИ ДЛЯ ШАПКИ И ПОИСКА --- */
+
+.top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 5%;
+    background: rgba(0, 0, 0, 0.2); /* Легкое затемнение шапки */
+    backdrop-filter: blur(5px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    margin-bottom: 20px;
+}
+
+/* Красивая кнопка "Новая публикация" */
+.btn-new-pub-glam {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 99%, #fecfef 100%);
+    color: #592e35;
+    text-decoration: none;
+    padding: 12px 30px;
+    border-radius: 50px;
+    font-weight: 700;
+    font-size: 16px;
+    box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+
+.btn-new-pub-glam span {
+    font-size: 20px;
+    line-height: 1;
+}
+
+.btn-new-pub-glam:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 154, 158, 0.6);
+    color: #333;
+}
+
+/* Форма поиска по центру */
+.search-form {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 5px;
+    border-radius: 50px;
+    width: 500px; /* Широкая строка */
+    max-width: 100%;
+    margin: 0 20px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.search-input {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    padding: 10px 20px;
+    color: white;
+    font-size: 18px;
+    font-family: inherit;
+    outline: none;
+}
+
+.search-input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Убираем фон при автозаполнении в Chrome, Safari и Edge */
+.search-input:-webkit-autofill,
+.search-input:-webkit-autofill:hover, 
+.search-input:-webkit-autofill:focus {
+    -webkit-text-fill-color: white; /* Цвет текста */
+    -webkit-box-shadow: 0 0 0px 1000px transparent inset; /* "Забиваем" фон прозрачностью */
+    transition: background-color 5000s ease-in-out 0s; /* Делаем смену цвета фона бесконечно долгой */
+}
+
+.btn-search {
+    background: white;
+    color: #7E7482;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-search:hover {
+    background: #f0f0f0;
+}
+
+/* Кнопка сброса */
+.btn-reset {
+    margin-left: 15px;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+.btn-reset:hover {
+    color: white;
+    text-decoration: underline;
+}
+.btn-reset.disabled {
+    color: rgba(255,255,255,0.3);
+    pointer-events: none;
+    cursor: default;
+}
+
+/* Кнопка "еще" в лентах (переоформление ссылки под кнопку) */
+a.btn-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+/* --- GRID VIEW (ПЛИТКА) --- */
+
+.grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.grid-item {
+    width: 100%; /* Перезаписываем flex-width из art-item */
+    flex: none;
+    height: 200px; /* Чуть выше для плитки */
+    position: relative;
+}
+
+/* Стрелочка пагинации снизу */
+.pagination-area {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+    padding-bottom: 20px;
+}
+
+.btn-arrow-down {
+    background: rgba(255,255,255,0.2);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    text-decoration: none;
+    border: 2px solid white;
+    transition: all 0.3s ease;
+}
+
+.btn-arrow-down:hover {
+    background: white;
+    color: #7E7482;
+    transform: translateY(5px);
+}
+
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 20px;
+    width: 80%;
+    max-width: 900px;
+    color: #333;
+    position: relative;
+}
+
+.modal-body {
+    display: flex;
+    gap: 30px;
+}
+
+.modal-image-container {
+    flex: 1;
+}
+
+.modal-image-container img {
+    width: 100%;
+    border-radius: 10px;
+}
+
+.modal-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.close-modal {
+    position: absolute;
+    right: 20px;
+    top: 10px;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+#editForm input, #editForm textarea, #editForm select {
+    margin-bottom: 10px;
+    width: 100%;
+    border: 1px solid #ccc;
+    padding: 8px;
+    border-radius: 5px;
+}
+
+/* Вкладки типов */
+.type-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.tab-item {
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    text-decoration: none;
+    border-radius: 30px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.tab-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.tab-item.active {
+    background: white;
+    color: #7E7482;
+    font-weight: bold;
+}
+
+/* Вспомогательные стили для форм */
+.input-field {
+    width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc;
+}
+.cancel-link {
+    display: block; text-align: center; margin-top: 20px; color: #7E7482; text-decoration: none;
+}
+.delete-btn {
+    background: #ff4d4d !important; color: white !important; padding: 10px !important; border-radius: 10px !important;
+}
+
+.bg-home {
+    background: #b8aaae;
+    overflow-x: hidden;
+    position: relative;
+}
+
+.bg-blobs {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: -1;
+    overflow: hidden;
+}
+
+.blob {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    background: rgba(126, 116, 130, 0.4);
+    filter: blur(80px);
+    border-radius: 50%;
+}
+
+.blob-1 { top: -100px; right: -100px; background: #a35b5b; }
+.blob-2 { bottom: -100px; left: -100px; background: #864949; }
+
+
+
+
+/* Находим .art-bar и добавляем position: relative */
+.art-bar {
+    background: rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    gap: 15px;
+    overflow-x: auto;
+    border-radius: 12px;
+    scrollbar-width: none;
+    position: relative; /* Добавлено */
+}
+
+/* Обертка для строки ленты, чтобы кнопка была справа снаружи */
+.row-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* Стили для кнопки "Еще", когда она снаружи */
+.btn-more-outer {
+    position: absolute;
+    right: -70px; /* Выносим вправо за пределы контейнера */
+    min-width: 50px;
+    height: 50px;
+    background: white;
+    border-radius: 50%;
+    display: none; /* По умолчанию скрыта, JS покажет если надо */
+    align-items: center;
+    justify-content: center;
+    color: #7E7482;
+    text-decoration: none;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    z-index: 10;
+    transition: transform 0.2s;
+}
+
+.btn-more-outer:hover {
+    transform: scale(1.1);
+    background: #f0f0f0;
+}
+
+/* Адаптив: если экран узкий, отодвигаем контейнер или прячем кнопку */
+@media (max-width: 1400px) {
+    .feed-container { margin-right: 80px; }
+}

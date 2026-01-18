@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <title>Создать публикацию</title>
+</head>
+<body class="bg-home">
+    <div class="screen" style="justify-content: flex-start; padding-top: 50px; overflow-y: auto;">
+        <div class="form-container" style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; max-width: 500px; width: 90%;">
+            <h1 class="title-black" style="font-size: 32px; margin-bottom: 20px; text-align: center;">Новая публикация</h1>
+            
+            <form method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Название работы</label>
+                    <input type="text" name="title" placeholder="Введите название..." required class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label>Изображение</label>
+                    <input type="file" name="image" accept="image/*" required onchange="previewImg(this)">
+                    <div id="previewWrap" style="display:none; margin-top:15px; text-align:center;">
+                        <img id="imgPreview" style="max-width:100%; max-height:300px; border-radius:12px; border:3px solid #C4B5C7;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Описание</label>
+                    <textarea name="description" rows="3" placeholder="Расскажите о своей работе..." class="input-field"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Хештеги</label>
+                    <input type="text" name="hashtags" placeholder="art, drawing" class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label>Тип контента</label>
+                    <select name="pub_type" class="input-field">
+                        {% for t in content_types %}
+                        <option value="{{ t }}">{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn-new-pub-glam" style="width:100%; border:none; cursor:pointer;">Опубликовать</button>
+            </form>
+            <a href="{{ url_for('home') }}" class="cancel-link">Отмена</a>
+        </div>
+    </div>
+
+    <script>
+        function previewImg(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imgPreview').src = e.target.result;
+                    document.getElementById('previewWrap').style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+</body>
+</html>
