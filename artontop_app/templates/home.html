@@ -19,40 +19,28 @@
 
         <form action="{{ url_for('home') }}" method="GET" class="search-form">
             <input type="hidden" name="pub_type" value="{{ active_type }}">
-            
             <input type="text" name="search" class="search-input" placeholder="#поиск по хештегу..." 
                    value="{{ search_query if search_query and search_query != 'Все' else '' }}">
-            
             <button type="submit" class="btn-search">Поиск</button>
-            
             {% if mode == 'grid' or active_type != 'Все типы' %}
                 <a href="{{ url_for('home') }}" class="btn-reset">Сбросить</a>
             {% else %}
                 <span class="btn-reset disabled">Сбросить</span>
             {% endif %}
         </form>
-
         <div style="width: 200px;"></div> 
     </header>
 
     <div class="type-tabs">
-        <a href="{{ url_for('home', pub_type='Все типы') }}" 
-           class="tab-item {{ 'active' if active_type == 'Все типы' }}">Все типы</a>
-        
+        <a href="{{ url_for('home', pub_type='Все типы') }}" class="tab-item {{ 'active' if active_type == 'Все типы' }}">Все типы</a>
         {% for t in content_types %}
-        <a href="{{ url_for('home', pub_type=t) }}" 
-           class="tab-item {{ 'active' if active_type == t }}">{{ t }}</a>
+        <a href="{{ url_for('home', pub_type=t) }}" class="tab-item {{ 'active' if active_type == t }}">{{ t }}</a>
         {% endfor %}
     </div>
 
     <div class="feed-container">
-        
         {% if mode == 'grid' %}
-            <h2 class="row-title">
-                Результаты: {{ search_query if search_query else 'Все' }} 
-                <span style="font-size: 0.6em; opacity: 0.7;">({{ active_type }})</span>
-            </h2>
-            
+            <h2 class="row-title">Результаты: {{ search_query if search_query else 'Все' }} <span style="font-size: 0.6em; opacity: 0.7;">({{ active_type }})</span></h2>
             <div class="grid-layout">
                 {% for pub in pubs %}
                 <div class="art-item grid-item" onclick="openPost({{ pub.id }})">
@@ -63,34 +51,31 @@
                 <p style="color:white; grid-column: 1/-1; text-align: center; padding: 50px;">Ничего не найдено.</p>
                 {% endfor %}
             </div>
-
             {% if next_page %}
             <div class="pagination-area">
-                <a href="{{ url_for('home', search=search_query, pub_type=active_type, page=next_page) }}" class="btn-arrow-down">
-                    ▼
-                </a>
+                <a href="{{ url_for('home', search=search_query, pub_type=active_type, page=next_page) }}" class="btn-arrow-down">▼</a>
             </div>
             {% endif %}
-
         {% else %}
             <h2 class="row-title">Свежее в категории: {{ active_type }}</h2>
             <div class="row-wrapper" style="position: relative; display: flex; align-items: center;">
                 <div class="art-bar" id="bar-fresh">
-                    {% for pub in all_pubs[:20] %} <div class="art-item" onclick="openPost({{ pub.id }})">
+                    {% for pub in all_pubs[:20] %} 
+                    <div class="art-item" onclick="openPost({{ pub.id }})">
                         <img src="/static/uploads/{{ pub.image }}">
                     </div>
                     {% endfor %}
                 </div>
                 <a href="{{ url_for('home', search='Все', pub_type=active_type) }}" class="btn-more-outer" id="btn-fresh">ещё</a>
             </div>
-
             {% for tag in top_tags %}
             <h2 class="row-title">#{{ tag }}</h2>
             <div class="row-wrapper" style="position: relative; display: flex; align-items: center;">
                 <div class="art-bar" id="bar-{{ tag }}">
                     {% set count = namespace(value=0) %}
                     {% for pub in all_pubs %}
-                        {% if tag in pub.hashtags and count.value < 20 %} <div class="art-item" onclick="openPost({{ pub.id }})">
+                        {% if tag in pub.hashtags and count.value < 20 %} 
+                        <div class="art-item" onclick="openPost({{ pub.id }})">
                             <img src="/static/uploads/{{ pub.image }}">
                         </div>
                         {% set count.value = count.value + 1 %}
@@ -100,7 +85,6 @@
                 <a href="{{ url_for('home', search=tag, pub_type=active_type) }}" class="btn-more-outer" id="btn-{{ tag }}">ещё</a>
             </div>
             {% endfor %}
-            
         {% endif %}
     </div>
 
@@ -121,23 +105,44 @@
                         <p id="modalTags" style="color: #7E7482; font-weight: bold; margin-top: 15px;"></p>
                     </div>
 
+                    <button id="btnDeleteRemix" class="delete-btn" style="display:none; margin-top:10px; width:100%; border:none; cursor:pointer;">
+                        🗑 Удалить этот ремикс
+                    </button>
+
+                    <div id="commentsSection" style="display:none; margin-top:20px; background:#f9f9f9; padding:10px; border-radius:10px;">
+                        <h4 style="margin:0 0 10px 0;">Комментарии</h4>
+                        <div id="commentsList" style="max-height:150px; overflow-y:auto; margin-bottom:10px; font-size:13px;"></div>
+                        <div style="display:flex; gap:5px;">
+                            <input type="text" id="commentInput" placeholder="Написать..." class="input-field" style="margin:0; font-size:12px;">
+                            <button onclick="sendComment()" class="btn-search" style="padding:5px 15px;">></button>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <a id="btnRemix" href="#" class="btn-new-pub-glam" style="font-size: 14px; padding: 8px 20px;">
+                            <span>🎨</span> Сделать ремикс
+                        </a>
+                    </div>
+
+                    <div id="remixSection" style="margin-top: 30px; display: none;">
+                        <h3 style="color: #7E7482; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Ремиксы сообщества</h3>
+                        <div id="remixList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;"></div>
+                    </div>
+
                     <div id="ownerControls" class="owner-panel" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 20px;">
                         <h4 style="margin-bottom: 10px;">Редактировать публикацию</h4>
                         <form id="editForm" method="POST">
                             <input type="text" name="title" id="editTitle" placeholder="Заголовок" class="input-field">
                             <textarea name="description" id="editDesc" placeholder="Описание" class="input-field" rows="3"></textarea>
                             <input type="text" name="hashtags" id="editTags" placeholder="Теги (через запятую)" class="input-field">
-                            
                             <select name="pub_type" id="editType" class="input-field">
                                 {% for t in content_types %}
                                 <option value="{{ t }}">{{ t }}</option>
                                 {% endfor %}
                             </select>
-
                             <div style="display:flex; gap:10px; margin-top:10px;">
                                 <button type="submit" class="btn-search">Сохранить</button>
-                                <a id="deleteLink" href="" class="delete-btn" 
-                                   onclick="return confirm('Вы уверены, что хотите удалить этот пост навсегда?')">Удалить</a>
+                                <a id="deleteLink" href="" class="delete-btn" onclick="return confirm('Удалить?')">Удалить</a>
                             </div>
                         </form>
                     </div>
@@ -148,60 +153,255 @@
 
     <script>
         const modal = document.getElementById('postModal');
-
-        // Функция проверки переполнения для отображения кнопки "Еще"
+        
+        // Глобальные переменные состояния
+        let currentContext = 'pub'; // 'pub' или 'remix'
+        let originalPostData = null; // Данные оригинала, чтобы вернуться без перезагрузки
+        let activeObjectId = null;   // ID текущего объекта (публикации или ремикса)
+        let currentUserId = null;
+    
         function checkOverflow() {
             const bars = document.querySelectorAll('.art-bar');
             bars.forEach(bar => {
                 const btn = bar.parentElement.querySelector('.btn-more-outer');
                 if (btn) {
-                    // Если ширина контента больше ширины видимой области, показываем кнопку
-                    if (bar.scrollWidth > bar.clientWidth) {
-                        btn.style.display = 'flex';
-                    } else {
-                        btn.style.display = 'none';
-                    }
+                    if (bar.scrollWidth > bar.clientWidth) btn.style.display = 'flex';
+                    else btn.style.display = 'none';
                 }
             });
         }
-
         window.addEventListener('load', checkOverflow);
         window.addEventListener('resize', checkOverflow);
-
+    
         function openPost(id) {
             fetch(`/get_post/${id}`)
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
-                    document.getElementById('modalTitle').innerText = data.title || "Без названия";
-                    document.getElementById('modalAuthor').innerText = `Автор: ${data.author_name}`;
-                    document.getElementById('modalDesc').innerText = data.description;
-                    document.getElementById('modalTags').innerText = data.hashtags;
+                    // Сохраняем данные оригинала
+                    originalPostData = data;
+                    currentUserId = data.current_user_id;
                     
-                    const controls = document.getElementById('ownerControls');
-                    
-                    if(data.is_owner) {
-                        controls.style.display = 'block';
-                        document.getElementById('editForm').action = `/edit/${data.id}`;
-                        document.getElementById('editTitle').value = data.title || "";
-                        document.getElementById('editDesc').value = data.description;
-                        document.getElementById('editTags').value = data.hashtags;
-                        document.getElementById('editType').value = data.pub_type;
-                        document.getElementById('deleteLink').href = `/delete/${data.id}`;
-                    } else {
-                        controls.style.display = 'none';
-                    }
+                    // Рендерим оригинал
+                    renderOriginalView();
                     
                     modal.style.display = 'block';
                     document.body.style.overflow = 'hidden';
                 });
         }
-
+    
+        // Функция отрисовки ОРИГИНАЛА
+        function renderOriginalView() {
+            const data = originalPostData;
+            currentContext = 'pub';
+            activeObjectId = data.id;
+    
+            // Заполнение UI
+            document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
+            document.getElementById('modalTitle').innerText = data.title || "Без названия";
+            document.getElementById('modalAuthor').innerText = `Автор: ${data.author_name}`;
+            document.getElementById('modalDesc').innerText = data.description;
+            document.getElementById('modalTags').innerText = data.hashtags;
+            document.getElementById('btnRemix').href = `/editor/${data.id}`;
+            document.getElementById('btnRemix').style.display = 'inline-flex';
+    
+            // Скрываем кнопку удаления ремикса (мы в оригинале)
+            document.getElementById('btnDeleteRemix').style.display = 'none';
+    
+            // Панель владельца (редактирование поста)
+            const controls = document.getElementById('ownerControls');
+            if(data.is_owner) {
+                controls.style.display = 'block';
+                document.getElementById('editForm').action = `/edit/${data.id}`;
+                document.getElementById('editTitle').value = data.title || "";
+                document.getElementById('editDesc').value = data.description;
+                document.getElementById('editTags').value = data.hashtags;
+                document.getElementById('editType').value = data.pub_type;
+                document.getElementById('deleteLink').href = `/delete/${data.id}`;
+            } else {
+                controls.style.display = 'none';
+            }
+    
+            // Рендер списка ремиксов (включая иконку оригинала)
+            renderRemixList(data.remixes, null); // null значит "активен оригинал"
+    
+            // Загрузка комментариев ОРИГИНАЛА
+            loadComments('pub', data.id);
+        }
+    
+        // Функция отрисовки РЕМИКСА
+        function switchToRemixView(remix) {
+            currentContext = 'remix';
+            activeObjectId = remix.id;
+    
+            document.getElementById('modalImage').src = `/static/uploads/${remix.image}`;
+            document.getElementById('modalTitle').innerText = "Ремикс";
+            document.getElementById('modalAuthor').innerText = `Автор ремикса: ${remix.author_name}`;
+            document.getElementById('modalDesc').innerText = `Дата: ${remix.date}`;
+            document.getElementById('modalTags').innerText = ""; // У ремиксов нет тегов
+            
+            // Скрываем панель владельца оригиналом
+            document.getElementById('ownerControls').style.display = 'none';
+            document.getElementById('btnRemix').style.display = 'none'; // Нельзя делать ремикс на ремикс (пока)
+    
+            // Кнопка удаления ремикса
+            const delBtn = document.getElementById('btnDeleteRemix');
+            if (remix.author_id === currentUserId) {
+                delBtn.style.display = 'block';
+                delBtn.onclick = () => deleteRemix(remix.id);
+            } else {
+                delBtn.style.display = 'none';
+            }
+    
+            // Перерисовываем список ремиксов, чтобы выделить активный
+            renderRemixList(originalPostData.remixes, remix.id);
+    
+            // Загрузка комментариев РЕМИКСА
+            loadComments('remix', remix.id);
+        }
+    
+        function renderRemixList(remixes, activeRemixId) {
+            const remixSection = document.getElementById('remixSection');
+            const remixList = document.getElementById('remixList');
+            remixList.innerHTML = '';
+    
+            if ((!remixes || remixes.length === 0) && !activeRemixId) {
+                remixSection.style.display = 'none';
+                return;
+            }
+            remixSection.style.display = 'block';
+    
+            // 1. Добавляем карточку "ОРИГИНАЛ" в начало списка
+            const origDiv = createRemixThumb(
+                originalPostData.image, 
+                "Оригинал", 
+                activeRemixId === null // Если activeRemixId null, значит выбран оригинал
+            );
+            origDiv.onclick = () => renderOriginalView();
+            remixList.appendChild(origDiv);
+    
+            // 2. Добавляем остальные ремиксы
+            if(remixes) {
+                remixes.forEach(remix => {
+                    const rDiv = createRemixThumb(
+                        remix.image, 
+                        remix.author_name, 
+                        activeRemixId === remix.id
+                    );
+                    rDiv.onclick = () => switchToRemixView(remix);
+                    remixList.appendChild(rDiv);
+                });
+            }
+        }
+    
+        // Вспомогательная функция создания миниатюры
+        function createRemixThumb(imageName, label, isActive) {
+            const div = document.createElement('div');
+            div.style.minWidth = '80px';
+            div.style.textAlign = 'center';
+            div.style.fontSize = '11px';
+            div.style.cursor = 'pointer';
+            div.style.opacity = isActive ? '1' : '0.6';
+            div.style.transition = '0.2s';
+            
+            // При наведении ярче
+            div.onmouseenter = () => div.style.opacity = '1';
+            div.onmouseleave = () => { if(!isActive) div.style.opacity = '0.6'; };
+    
+            const img = document.createElement('img');
+            img.src = `/static/uploads/${imageName}`;
+            img.style.width = '70px';
+            img.style.height = '70px';
+            img.style.objectFit = 'cover';
+            img.style.borderRadius = '12px';
+            img.style.border = isActive ? '3px solid #ff9a9e' : '2px solid transparent';
+            
+            const span = document.createElement('div');
+            span.innerText = label;
+            span.style.marginTop = '4px'; 
+            span.style.color = '#333';
+            span.style.fontWeight = isActive ? 'bold' : 'normal';
+    
+            div.appendChild(img);
+            div.appendChild(span);
+            return div;
+        }
+    
+        // --- ЛОГИКА КОММЕНТАРИЕВ (Универсальная) ---
+        
+        function loadComments(type, id) {
+            const section = document.getElementById('commentsSection');
+            const list = document.getElementById('commentsList');
+            section.style.display = 'block';
+            list.innerHTML = 'Загрузка...';
+            
+            // Выбираем URL в зависимости от типа (публикация или ремикс)
+            const url = type === 'pub' 
+                ? `/get_pub_comments/${id}` 
+                : `/get_remix_comments/${id}`;
+    
+            fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                list.innerHTML = '';
+                if(data.comments.length === 0) list.innerHTML = '<i style="color:#999">Нет комментариев</i>';
+                
+                data.comments.forEach(c => {
+                    const p = document.createElement('p');
+                    p.style.margin = '5px 0';
+                    p.innerHTML = `<b>${c.author}</b>: ${c.text} <span style="color:#aaa; font-size:10px;">${c.date}</span>`;
+                    list.appendChild(p);
+                });
+                list.scrollTop = list.scrollHeight;
+            });
+        }
+    
+        function sendComment() {
+            const input = document.getElementById('commentInput');
+            const text = input.value.trim();
+            if(!text || !activeObjectId) return;
+            
+            // Определяем куда слать
+            const url = currentContext === 'pub' ? '/add_pub_comment' : '/add_remix_comment';
+            const payload = currentContext === 'pub' 
+                ? { pub_id: activeObjectId, text: text }
+                : { remix_id: activeObjectId, text: text };
+    
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    input.value = '';
+                    loadComments(currentContext, activeObjectId); // Перезагрузка списка
+                } else if (data.error === 'Unauthorized') {
+                    alert("Войдите в аккаунт, чтобы комментировать");
+                }
+            });
+        }
+    
+        function deleteRemix(id) {
+            if(!confirm('Удалить ремикс навсегда?')) return;
+            fetch(`/delete_remix/${id}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    // Если удалили ремикс, возвращаемся к оригиналу
+                    alert('Ремикс удален');
+                    // Обновляем список ремиксов в локальных данных
+                    originalPostData.remixes = originalPostData.remixes.filter(r => r.id !== id);
+                    renderOriginalView(); 
+                }
+            });
+        }
+    
         document.querySelector('.close-modal').onclick = () => {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
         };
-
+    
         window.onclick = (e) => {
             if(e.target == modal) {
                 modal.style.display = 'none';

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Редактор ремикса</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .editor-container {
+            display: flex;
+            height: 100vh;
+            background: #2b2b2b;
+            overflow: hidden;
+        }
+        .toolbar {
+            width: 280px;
+            background: #333;
+            padding: 20px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            overflow-y: auto;
+        }
+        .canvas-area {
+            flex-grow: 1;
+            position: relative;
+            background: #444; 
+            overflow: hidden;
+            /* Курсор меняется JS */
+        }
+        canvas {
+            background: transparent;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            /* Transform handled by JS style */
+            position: absolute;
+            top: 0; left: 0;
+            transform-origin: 0 0; 
+        }
+        
+        /* UI Elements */
+        .tool-group { margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .tool-label { font-size: 11px; color: #aaa; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .btn-tool {
+            width: 100%; padding: 10px; background: #555; border: 1px solid #666; 
+            color: white; cursor: pointer; border-radius: 5px; margin-bottom: 5px;
+            text-align: left; display: flex; align-items: center; gap: 10px;
+            transition: all 0.2s;
+        }
+        .btn-tool:hover { background: #666; }
+        .btn-tool.active { background: #ff9a9e; color: #333; font-weight: bold; border-color: #ff9a9e; }
+        
+        .nav-controls {
+            position: absolute; bottom: 20px; right: 20px; 
+            background: rgba(0,0,0,0.6); padding: 10px; border-radius: 12px; 
+            display: flex; gap: 8px; align-items: center; backdrop-filter: blur(5px);
+        }
+        .nav-btn {
+            width: 36px; height: 36px; border: none; background: rgba(255,255,255,0.1); color: white;
+            border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .nav-btn:hover { background: rgba(255,255,255,0.3); }
+
+        input[type="range"] { width: 100%; cursor: pointer; }
+        input[type="color"] { width: 100%; height: 40px; border: none; cursor: pointer; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="editor-container">
+    <div class="toolbar">
+        <h2 style="margin-top:0; font-size: 20px;">Remix Editor</h2>
+        
+        <div class="tool-group">
+            <span class="tool-label">История</span>
+            <div style="display:flex; gap:5px;">
+                <button onclick="undo()" class="btn-tool" style="justify-content:center;">↩</button>
+                <button onclick="redo()" class="btn-tool" style="justify-content:center;">↪</button>
+            </div>
+        </div>
+
+        <div class="tool-group">
+            <span class="tool-label">Инструменты</span>
+            <button class="btn-tool" onclick="setTool('hand', this)">✋ Рука (Перемещение)</button>
+            <button class="btn-tool active" onclick="setTool('pen', this)">🖊️ Ручка</button>
+            <button class="btn-tool" onclick="setTool('pencil', this)">✏️ Карандаш</button>
+            <button class="btn-tool" onclick="setTool('felt', this)">🖍️ Фломастер</button>
+            <button class="btn-tool" onclick="setTool('square', this)">⬛ Квадрат. перо</button>
+            <button class="btn-tool" onclick="setTool('marker', this)">🖌️ Маркер</button>
+            <button class="btn-tool" onclick="setTool('eraser', this)">🧽 Ластик</button>
+        </div>
+
+        <div class="tool-group">
+            <span class="tool-label">Цвет (RGB)</span>
+            <input type="color" id="colorPicker" value="#000000">
+        </div>
+
+        <div class="tool-group">
+            <span class="tool-label">Размер: <span id="sizeVal">5</span>px</span>
+            <input type="range" id="brushSize" min="1" max="50" value="5" oninput="document.getElementById('sizeVal').innerText=this.value">
+        </div>
+
+        <div class="tool-group">
+            <span class="tool-label">Прозрачность: <span id="opacityVal">100</span>%</span>
+            <input type="range" id="opacitySlider" min="1" max="100" value="100" oninput="updateOpacity(this.value)">
+        </div>
+
+        <div style="margin-top: auto;">
+            <button onclick="saveRemix()" class="btn-new-pub-glam" style="width:100%; justify-content:center;">💾 Сохранить</button>
+            <a href="{{ url_for('home') }}" class="btn-tool" style="justify-content:center; text-decoration:none; margin-top:10px;">Отмена</a>
+        </div>
+    </div>
+
+    <div class="canvas-area" id="canvasContainer">
+        <canvas id="artCanvas"></canvas>
+        
+        <div class="nav-controls">
+            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 10px;">
+                <button class="nav-btn" onclick="panCanvas(0, 50)" style="height: 20px; margin-bottom: 2px;">▲</button>
+                <div style="display:flex; gap:2px;">
+                    <button class="nav-btn" onclick="panCanvas(50, 0)" style="width: 25px; height: 25px;">◀</button>
+                    <button class="nav-btn" onclick="resetView()" style="width: 25px; height: 25px; font-size:10px;">●</button>
+                    <button class="nav-btn" onclick="panCanvas(-50, 0)" style="width: 25px; height: 25px;">▶</button>
+                </div>
+                <button class="nav-btn" onclick="panCanvas(0, -50)" style="height: 20px; margin-top: 2px;">▼</button>
+            </div>
+
+            <button class="nav-btn" onclick="changeZoom(-0.1)">-</button>
+            <span id="zoomLevel" style="color:white; min-width: 40px; text-align: center; font-size: 14px;">100%</span>
+            <button class="nav-btn" onclick="changeZoom(0.1)">+</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('artCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+    const originalSrc = "{{ url_for('static', filename='uploads/' + pub.image) }}";
+    const originalId = {{ pub.id }};
+
+    // Состояние
+    let isDrawing = false;
+    let isPanning = false;
+    let tool = 'pen';
+    let startX = 0, startY = 0;
+    
+    // Трансформации
+    let scale = 1;
+    let panX = 0;
+    let panY = 0;
+
+    // История
+    let history = [];
+    let historyStep = -1;
+
+    // Настройки кисти
+    let baseToolAlpha = 1.0; // Базовая прозрачность инструмента
+    let userOpacity = 1.0;   // Выбор пользователя (0.0 - 1.0)
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = originalSrc;
+    img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Центрируем холст при загрузке
+        const contW = container.clientWidth;
+        const contH = container.clientHeight;
+        panX = (contW - img.width) / 2;
+        panY = (contH - img.height) / 2;
+        
+        // Если картинка большая, уменьшаем масштаб
+        if (img.width > contW || img.height > contH) {
+            scale = Math.min(contW/img.width, contH/img.height) * 0.9;
+        }
+
+        ctx.drawImage(img, 0, 0);
+        saveState();
+        updateTransform();
+    };
+
+    function updateTransform() {
+        // [НОВОЕ] Используем translate и scale
+        canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        document.getElementById('zoomLevel').innerText = Math.round(scale * 100) + '%';
+        
+        // Курсор
+        if (tool === 'hand') container.style.cursor = isPanning ? 'grabbing' : 'grab';
+        else container.style.cursor = 'crosshair';
+    }
+
+    // --- MOUSE EVENTS ---
+    
+    // Получение координат с учетом трансформации
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect(); 
+        // rect.left/top уже учитывают translate и scale, так как они на самом элементе canvas
+        // Но нам нужны координаты ВНУТРИ исходного размера canvas (unscaled)
+        
+        // Вариант 1 (простой): использовать смещение мыши относительно canvas и делить на scale
+        // Так как transform-origin: 0 0, rect.left = canvas.offsetLeft + panX (грубо говоря)
+        
+        return {
+            x: (evt.clientX - rect.left) / scale,
+            y: (evt.clientY - rect.top) / scale
+        };
+    }
+
+    container.addEventListener('mousedown', (e) => {
+        if (tool === 'hand' || e.button === 1) { // Средняя кнопка или инструмент Рука
+            isPanning = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            container.style.cursor = 'grabbing';
+            return;
+        }
+        
+        isDrawing = true;
+        draw(e);
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isDrawing) saveState();
+        isDrawing = false;
+        isPanning = false;
+        ctx.beginPath();
+        updateTransform(); // Сброс курсора
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (isPanning) {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            panX += dx;
+            panY += dy;
+            startX = e.clientX;
+            startY = e.clientY;
+            updateTransform();
+            return;
+        }
+        
+        if (isDrawing) draw(e);
+    });
+
+    // --- DRAWING LOGIC ---
+    function draw(e) {
+        if (!isDrawing) return;
+
+        const pos = getMousePos(e);
+        const color = document.getElementById('colorPicker').value;
+        const size = document.getElementById('brushSize').value;
+        
+        ctx.lineWidth = size;
+        ctx.strokeStyle = color;
+        ctx.globalCompositeOperation = 'source-over'; 
+
+        // [ИСПРАВЛЕНИЕ] Вычисляем итоговую прозрачность
+        // baseToolAlpha задается при выборе инструмента
+        ctx.globalAlpha = baseToolAlpha * userOpacity;
+
+        switch(tool) {
+            case 'pen':
+                ctx.lineCap = 'round';
+                break;
+            case 'pencil':
+                // baseAlpha уже 0.8
+                ctx.lineCap = 'butt';
+                break;
+            case 'felt':
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                break;
+            case 'square':
+                ctx.lineCap = 'square';
+                break;
+            case 'marker':
+                ctx.lineWidth = size * 3;
+                ctx.lineCap = 'square';
+                // Marker обычно "наслаивается", но пока оставим source-over для простоты,
+                // либо можно включить multiply для эффекта маркера
+                // ctx.globalCompositeOperation = 'multiply'; 
+                break;
+            case 'eraser':
+                ctx.strokeStyle = '#ffffff'; // Просто белый цвет
+                ctx.globalAlpha = 1.0; // Ластик всегда 100% непрозрачный
+                ctx.lineCap = 'round';
+                break;
+        }
+
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(pos.x, pos.y);
+    }
+
+    // --- TOOLS ---
+    function setTool(newTool, btn) {
+        tool = newTool;
+        
+        // Настройка базовой прозрачности для инструмента
+        switch(newTool) {
+            case 'pencil': baseToolAlpha = 0.8; break;
+            case 'marker': baseToolAlpha = 0.4; break;
+            case 'felt':   baseToolAlpha = 0.95; break;
+            default:       baseToolAlpha = 1.0;
+        }
+
+        document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        updateTransform();
+    }
+
+    function updateOpacity(val) {
+        document.getElementById('opacityVal').innerText = val;
+        userOpacity = val / 100;
+    }
+
+    // --- ZOOM & PAN ---
+    function changeZoom(delta) {
+        let oldScale = scale;
+        scale += delta;
+        if (scale < 0.1) scale = 0.1;
+        if (scale > 5) scale = 5;
+        
+        // Попытка зума в центр (немного смещаем pan)
+        // Но простой вариант без сдвига тоже ок
+        updateTransform();
+    }
+    
+    function panCanvas(dx, dy) {
+        panX += dx;
+        panY += dy;
+        updateTransform();
+    }
+    
+    function resetView() {
+        scale = 1;
+        // Центрирование
+        const contW = container.clientWidth;
+        const contH = container.clientHeight;
+        panX = (contW - canvas.width) / 2;
+        panY = (contH - canvas.height) / 2;
+        updateTransform();
+    }
+
+    // --- UNDO / REDO ---
+    function saveState() {
+        historyStep++;
+        if (historyStep < history.length) {
+            history.length = historyStep;
+        }
+        history.push(canvas.toDataURL());
+    }
+
+    function restoreState() {
+        if (historyStep >= 0 && historyStep < history.length) {
+            let canvasPic = new Image();
+            canvasPic.src = history[historyStep];
+            canvasPic.onload = function () { 
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // [ВАЖНО] СБРОС НАСТРОЕК перед отрисовкой истории
+                // Это чинит баг с "блеклым" изображением
+                const oldAlpha = ctx.globalAlpha;
+                const oldComp = ctx.globalCompositeOperation;
+                
+                ctx.globalAlpha = 1.0;
+                ctx.globalCompositeOperation = 'source-over';
+                
+                ctx.drawImage(canvasPic, 0, 0); 
+                
+                // (Необязательно) возвращаем настройки, хотя draw() их все равно перезадает
+                ctx.globalAlpha = oldAlpha;
+                ctx.globalCompositeOperation = oldComp;
+            }
+        }
+    }
+
+    function undo() {
+        if (historyStep > 0) {
+            historyStep--;
+            restoreState();
+        }
+    }
+
+    function redo() {
+        if (historyStep < history.length - 1) {
+            historyStep++;
+            restoreState();
+        }
+    }
+
+    // --- SAVE ---
+    function saveRemix() {
+        // Рендерим на белом фоне перед сохранением, если есть прозрачность?
+        // Canvas.toDataURL сохраняет с прозрачностью (PNG).
+        const dataURL = canvas.toDataURL('image/png');
+        
+        fetch('/save_remix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image: dataURL,
+                original_id: originalId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'success') {
+                window.location.href = "{{ url_for('home') }}";
+            } else {
+                alert('Ошибка: ' + (data.error || 'Unknown'));
+            }
+        });
+    }
+    
+    // Блокировка контекстного меню
+    window.oncontextmenu = (e) => e.preventDefault();
+</script>
+
+</body>
+</html>

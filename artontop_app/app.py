@@ -1,10 +1,12 @@
 import os
+import time
+import base64
+from datetime import datetime
 from collections import Counter
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from flask import jsonify
 
 app = Flask(__name__)
 app.secret_key = 'art_top_secret'
@@ -18,12 +20,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'da
 app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'static', 'uploads')
 db = SQLAlchemy(app)
 
-# Делаем CONTENT_TYPES доступным во всех шаблонах автоматически
 @app.context_processor
 def inject_types():
     return dict(content_types=CONTENT_TYPES)
 
-# Models
+# --- MODELS ---
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80))
@@ -35,12 +37,41 @@ class Publication(db.Model):
     image = db.Column(db.String(200))
     description = db.Column(db.Text, nullable=True)
     hashtags = db.Column(db.String(200))
-    pub_type = db.Column(db.String(50)) # Drawing, Tutorial, Pose, Gamma
+    pub_type = db.Column(db.String(50)) 
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     title = db.Column(db.String(100))
+
+class Remix(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    image = db.Column(db.String(200)) 
+    original_pub_id = db.Column(db.Integer, db.ForeignKey('publication.id'))
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Helper to retrieve date/time could be added here for "freshness", 
-    # relying on ID order for now as proxy for "freshness"
+    author = db.relationship('User', backref='remixes')
+    original = db.relationship('Publication', backref='remixes')
+
+# Модель для комментариев к ремиксам
+class RemixComment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    remix_id = db.Column(db.Integer, db.ForeignKey('remix.id'))
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship('User', backref='remix_comments')
+    remix = db.relationship('Remix', backref='comments')
+
+# [НОВОЕ] Модель для комментариев к оригинальным публикациям
+class PublicationComment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    pub_id = db.Column(db.Integer, db.ForeignKey('publication.id'))
+    author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    text = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship('User', backref='pub_comments')
+    publication = db.relationship('Publication', backref='comments')
 
 with app.app_context():
     db.create_all()
@@ -87,17 +118,14 @@ def home():
         return redirect(url_for('auth'))
     
     active_type = request.args.get('pub_type', 'Все типы')
-    search_query = request.args.get('search') # Это может быть текст или слово "Все"
+    search_query = request.args.get('search') 
     page = request.args.get('page', 1, type=int)
     
-    # Базовый запрос с учетом фильтра по типу
     query = Publication.query
     if active_type != 'Все типы':
         query = query.filter_by(pub_type=active_type)
 
-    # РЕЖИМ ПЛИТКИ (GRID): включается только если есть параметр search
     if search_query is not None:
-        # Если поиск не пустой и не равен "Все", фильтруем по тегам
         if search_query.strip() and search_query != 'Все':
             query = query.filter(Publication.hashtags.contains(search_query))
         
@@ -110,10 +138,8 @@ def home():
                                active_type=active_type,
                                next_page=page+1 if pagination.has_next else None)
 
-    # РЕЖИМ ЛЕНТ (FEED): по умолчанию и при переключении табов
     all_pubs = query.order_by(Publication.id.desc()).all()
     
-    # Собираем теги только из отфильтрованных по типу публикаций
     all_tags = []
     for p in all_pubs:
         if p.hashtags:
@@ -127,7 +153,7 @@ def home():
                            all_pubs=all_pubs, 
                            top_tags=top_tags, 
                            active_type=active_type,
-                           search_query=None) # Явно передаем None
+                           search_query=None)
 
 @app.route('/publish', methods=['GET', 'POST'])
 def create_pub():
@@ -164,8 +190,20 @@ def delete_pub(id):
 @app.route('/get_post/<int:id>')
 def get_post(id):
     pub = Publication.query.get_or_404(id)
-    # Получаем имя автора
     author = User.query.get(pub.author_id)
+    
+    remixes_list = []
+    remixes = Remix.query.filter_by(original_pub_id=pub.id).order_by(Remix.created_at.asc()).all()
+    
+    for r in remixes:
+        remixes_list.append({
+            'id': r.id,
+            'image': r.image,
+            'author_name': r.author.username,
+            'author_id': r.author_id,
+            'date': r.created_at.strftime('%d.%m.%Y')
+        })
+
     return jsonify({
         'id': pub.id,
         'image': pub.image,
@@ -173,7 +211,9 @@ def get_post(id):
         'hashtags': pub.hashtags,
         'pub_type': pub.pub_type,
         'author_name': author.username if author else "Unknown",
-        'is_owner': pub.author_id == session.get('user_id')
+        'is_owner': pub.author_id == session.get('user_id'),
+        'current_user_id': session.get('user_id'),
+        'remixes': remixes_list
     })
 
 @app.route('/edit/<int:id>', methods=['POST'])
@@ -187,6 +227,145 @@ def edit_pub(id):
     pub.pub_type = request.form.get('pub_type')
     db.session.commit()
     return redirect(url_for('home'))
+
+# --- EDITOR & REMIX ROUTES ---
+
+@app.route('/editor/<int:original_id>')
+def editor(original_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    pub = Publication.query.get_or_404(original_id)
+    return render_template('editor.html', pub=pub)
+
+@app.route('/save_remix', methods=['POST'])
+def save_remix():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.json
+    image_data = data['image']
+    original_id = data['original_id']
+    
+    try:
+        header, encoded = image_data.split(",", 1)
+        file_data = base64.b64decode(encoded)
+        
+        filename = f"remix_{original_id}_{int(time.time())}.png"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        with open(filepath, "wb") as f:
+            f.write(file_data)
+            
+        new_remix = Remix(
+            image=filename,
+            original_pub_id=original_id,
+            author_id=session['user_id']
+        )
+        db.session.add(new_remix)
+        db.session.commit()
+        
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        print(e)
+        return jsonify({'error': 'Failed to save'}), 500
+
+@app.route('/delete_remix/<int:id>', methods=['POST'])
+def delete_remix(id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    remix = Remix.query.get_or_404(id)
+    if remix.author_id != session['user_id']:
+        return jsonify({'error': 'Access Denied'}), 403
+    
+    try:
+        os.remove(os.path.join(app.config['UPLOAD_FOLDER'], remix.image))
+    except:
+        pass
+    
+    db.session.delete(remix)
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+@app.route('/add_remix_comment', methods=['POST'])
+def add_remix_comment():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.json
+    text = data.get('text')
+    remix_id = data.get('remix_id')
+    
+    if not text or not remix_id:
+        return jsonify({'error': 'Missing data'}), 400
+        
+    comment = RemixComment(
+        remix_id=remix_id,
+        author_id=session['user_id'],
+        text=text
+    )
+    db.session.add(comment)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'author': User.query.get(session['user_id']).username,
+        'text': text,
+        'date': datetime.utcnow().strftime('%d.%m.%Y %H:%M')
+    })
+
+@app.route('/get_remix_comments/<int:remix_id>')
+def get_remix_comments(remix_id):
+    comments = RemixComment.query.filter_by(remix_id=remix_id).order_by(RemixComment.created_at.asc()).all()
+    result = []
+    for c in comments:
+        result.append({
+            'author': c.author.username,
+            'text': c.text,
+            'date': c.created_at.strftime('%d.%m.%Y %H:%M')
+        })
+    return jsonify({'comments': result})
+
+# [НОВОЕ] Добавление комментария к ОРИГИНАЛУ
+@app.route('/add_pub_comment', methods=['POST'])
+def add_pub_comment():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    data = request.json
+    text = data.get('text')
+    pub_id = data.get('pub_id')
+    
+    if not text or not pub_id:
+        return jsonify({'error': 'Missing data'}), 400
+        
+    comment = PublicationComment(
+        pub_id=pub_id,
+        author_id=session['user_id'],
+        text=text
+    )
+    db.session.add(comment)
+    db.session.commit()
+    
+    return jsonify({
+        'status': 'success',
+        'author': User.query.get(session['user_id']).username,
+        'text': text,
+        'date': datetime.utcnow().strftime('%d.%m.%Y %H:%M')
+    })
+
+# [НОВОЕ] Получение комментариев ОРИГИНАЛА
+@app.route('/get_pub_comments/<int:pub_id>')
+def get_pub_comments(pub_id):
+    comments = PublicationComment.query.filter_by(pub_id=pub_id).order_by(PublicationComment.created_at.asc()).all()
+    result = []
+    for c in comments:
+        result.append({
+            'author': c.author.username,
+            'text': c.text,
+            'date': c.created_at.strftime('%d.%m.%Y %H:%M')
+        })
+    return jsonify({'comments': result})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
