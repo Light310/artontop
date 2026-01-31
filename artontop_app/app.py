@@ -73,6 +73,32 @@ class PublicationComment(db.Model):
     author = db.relationship('User', backref='pub_comments')
     publication = db.relationship('Publication', backref='comments')
 
+# Модель для лайков публикаций
+class PublicationLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    pub_id = db.Column(db.Integer, db.ForeignKey('publication.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Уникальная пара: один пользователь может лайкнуть публикацию только один раз
+    __table_args__ = (db.UniqueConstraint('pub_id', 'user_id', name='_pub_user_like_uc'),)
+    
+    user = db.relationship('User', backref='pub_likes')
+    publication = db.relationship('Publication', backref='likes')
+
+# Модель для лайков ремиксов
+class RemixLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    remix_id = db.Column(db.Integer, db.ForeignKey('remix.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Уникальная пара: один пользователь может лайкнуть ремикс только один раз
+    __table_args__ = (db.UniqueConstraint('remix_id', 'user_id', name='_remix_user_like_uc'),)
+    
+    user = db.relationship('User', backref='remix_likes')
+    remix = db.relationship('Remix', backref='likes')
+
 with app.app_context():
     db.create_all()
 
@@ -192,17 +218,37 @@ def get_post(id):
     pub = Publication.query.get_or_404(id)
     author = User.query.get(pub.author_id)
     
-    remixes_list = []
-    remixes = Remix.query.filter_by(original_pub_id=pub.id).order_by(Remix.created_at.asc()).all()
+    current_user_id = session.get('user_id')
     
+    # Подсчет лайков и проверка, лайкнул ли текущий пользователь публикацию
+    pub_like_count = PublicationLike.query.filter_by(pub_id=pub.id).count()
+    pub_user_liked = False
+    if current_user_id:
+        pub_user_liked = PublicationLike.query.filter_by(pub_id=pub.id, user_id=current_user_id).first() is not None
+    
+    remixes_list = []
+    remixes = Remix.query.filter_by(original_pub_id=pub.id).all()
+    
+    # Собираем данные ремиксов с количеством лайков
     for r in remixes:
+        # Подсчет лайков для каждого ремикса
+        remix_like_count = RemixLike.query.filter_by(remix_id=r.id).count()
+        remix_user_liked = False
+        if current_user_id:
+            remix_user_liked = RemixLike.query.filter_by(remix_id=r.id, user_id=current_user_id).first() is not None
+        
         remixes_list.append({
             'id': r.id,
             'image': r.image,
             'author_name': r.author.username,
             'author_id': r.author_id,
-            'date': r.created_at.strftime('%d.%m.%Y')
+            'date': r.created_at.strftime('%d.%m.%Y'),
+            'like_count': remix_like_count,
+            'user_liked': remix_user_liked
         })
+    
+    # Сортируем ремиксы по количеству лайков (от большего к меньшему)
+    remixes_list.sort(key=lambda x: x['like_count'], reverse=True)
 
     return jsonify({
         'id': pub.id,
@@ -213,7 +259,9 @@ def get_post(id):
         'author_name': author.username if author else "Unknown",
         'is_owner': pub.author_id == session.get('user_id'),
         'current_user_id': session.get('user_id'),
-        'remixes': remixes_list
+        'remixes': remixes_list,
+        'like_count': pub_like_count,
+        'user_liked': pub_user_liked
     })
 
 @app.route('/edit/<int:id>', methods=['POST'])
@@ -264,7 +312,7 @@ def save_remix():
         db.session.add(new_remix)
         db.session.commit()
         
-        return jsonify({'status': 'success'})
+        return jsonify({'status': 'success', 'remix_id': new_remix.id})
     except Exception as e:
         print(e)
         return jsonify({'error': 'Failed to save'}), 500
@@ -366,6 +414,58 @@ def get_pub_comments(pub_id):
             'date': c.created_at.strftime('%d.%m.%Y %H:%M')
         })
     return jsonify({'comments': result})
+
+# --- LIKES ROUTES ---
+
+@app.route('/toggle_pub_like/<int:pub_id>', methods=['POST'])
+def toggle_pub_like(pub_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user_id = session['user_id']
+    existing_like = PublicationLike.query.filter_by(pub_id=pub_id, user_id=user_id).first()
+    
+    if existing_like:
+        # Убираем лайк
+        db.session.delete(existing_like)
+        db.session.commit()
+        liked = False
+    else:
+        # Ставим лайк
+        new_like = PublicationLike(pub_id=pub_id, user_id=user_id)
+        db.session.add(new_like)
+        db.session.commit()
+        liked = True
+    
+    # Подсчитываем общее количество лайков
+    like_count = PublicationLike.query.filter_by(pub_id=pub_id).count()
+    
+    return jsonify({'liked': liked, 'like_count': like_count})
+
+@app.route('/toggle_remix_like/<int:remix_id>', methods=['POST'])
+def toggle_remix_like(remix_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user_id = session['user_id']
+    existing_like = RemixLike.query.filter_by(remix_id=remix_id, user_id=user_id).first()
+    
+    if existing_like:
+        # Убираем лайк
+        db.session.delete(existing_like)
+        db.session.commit()
+        liked = False
+    else:
+        # Ставим лайк
+        new_like = RemixLike(remix_id=remix_id, user_id=user_id)
+        db.session.add(new_like)
+        db.session.commit()
+        liked = True
+    
+    # Подсчитываем общее количество лайков
+    like_count = RemixLike.query.filter_by(remix_id=remix_id).count()
+    
+    return jsonify({'liked': liked, 'like_count': like_count})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

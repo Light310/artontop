@@ -412,7 +412,8 @@
         .then(res => res.json())
         .then(data => {
             if(data.status === 'success') {
-                window.location.href = "{{ url_for('home') }}";
+                // Перенаправляем на home с параметрами для открытия модала с конкретным ремиксом
+                window.location.href = `/home?open_post=${originalId}&open_remix=${data.remix_id}`;
             } else {
                 alert('Ошибка: ' + (data.error || 'Unknown'));
             }

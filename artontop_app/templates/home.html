@@ -98,7 +98,15 @@
                 
                 <div class="modal-info">
                     <h1 id="modalTitle" style="margin-top:0; color: #333;"></h1>
-                    <h3 id="modalAuthor" style="color: #7E7482; margin-bottom: 20px;"></h3>
+                    <h3 id="modalAuthor" style="color: #7E7482; margin-bottom: 10px;"></h3>
+                    
+                    <!-- ЛАЙКИ -->
+                    <div id="likeSection" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                        <button id="btnLike" onclick="toggleLike()" class="btn-like">
+                            <span id="likeIcon">🤍</span>
+                        </button>
+                        <span id="likeCount" style="font-size: 16px; color: #333; font-weight: bold;">0</span>
+                    </div>
                     
                     <div class="scrollable-info">
                         <p id="modalDesc" style="line-height: 1.6;"></p>
@@ -125,8 +133,12 @@
                     </div>
 
                     <div id="remixSection" style="margin-top: 30px; display: none;">
-                        <h3 style="color: #7E7482; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Ремиксы сообщества</h3>
-                        <div id="remixList" style="display: flex; gap: 10px; overflow-x: auto; padding: 10px 0;"></div>
+                        <h3 style="color: #7E7482; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Ремиксы сообщества (по лайкам)</h3>
+                        <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+                            <button id="scrollLeftBtn" onclick="scrollRemixes(-1)" class="remix-scroll-btn" style="display: none;">‹</button>
+                            <div id="remixList" style="display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 10px 0; scroll-behavior: smooth; max-width: 400px; scrollbar-width: thin; scrollbar-color: #C4B5C7 #f0f0f0;"></div>
+                            <button id="scrollRightBtn" onclick="scrollRemixes(1)" class="remix-scroll-btn" style="display: none;">›</button>
+                        </div>
                     </div>
 
                     <div id="ownerControls" class="owner-panel" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 20px;">
@@ -204,6 +216,9 @@
             document.getElementById('btnRemix').href = `/editor/${data.id}`;
             document.getElementById('btnRemix').style.display = 'inline-flex';
     
+            // Лайки публикации
+            updateLikeButton(data.user_liked, data.like_count);
+    
             // Скрываем кнопку удаления ремикса (мы в оригинале)
             document.getElementById('btnDeleteRemix').style.display = 'none';
     
@@ -224,6 +239,9 @@
             // Рендер списка ремиксов (включая иконку оригинала)
             renderRemixList(data.remixes, null); // null значит "активен оригинал"
     
+            // Лайки публикации
+            updateLikeButton(data.user_liked, data.like_count);
+    
             // Загрузка комментариев ОРИГИНАЛА
             loadComments('pub', data.id);
         }
@@ -238,6 +256,9 @@
             document.getElementById('modalAuthor').innerText = `Автор ремикса: ${remix.author_name}`;
             document.getElementById('modalDesc').innerText = `Дата: ${remix.date}`;
             document.getElementById('modalTags').innerText = ""; // У ремиксов нет тегов
+            
+            // Лайки ремикса
+            updateLikeButton(remix.user_liked, remix.like_count);
             
             // Скрываем панель владельца оригиналом
             document.getElementById('ownerControls').style.display = 'none';
@@ -274,7 +295,8 @@
             const origDiv = createRemixThumb(
                 originalPostData.image, 
                 "Оригинал", 
-                activeRemixId === null // Если activeRemixId null, значит выбран оригинал
+                activeRemixId === null, // Если activeRemixId null, значит выбран оригинал
+                originalPostData.like_count
             );
             origDiv.onclick = () => renderOriginalView();
             remixList.appendChild(origDiv);
@@ -285,16 +307,20 @@
                     const rDiv = createRemixThumb(
                         remix.image, 
                         remix.author_name, 
-                        activeRemixId === remix.id
+                        activeRemixId === remix.id,
+                        remix.like_count
                     );
                     rDiv.onclick = () => switchToRemixView(remix);
                     remixList.appendChild(rDiv);
                 });
             }
+            
+            // Показываем/скрываем кнопки прокрутки
+            updateScrollButtons();
         }
     
         // Вспомогательная функция создания миниатюры
-        function createRemixThumb(imageName, label, isActive) {
+        function createRemixThumb(imageName, label, isActive, likeCount) {
             const div = document.createElement('div');
             div.style.minWidth = '80px';
             div.style.textAlign = 'center';
@@ -321,8 +347,16 @@
             span.style.color = '#333';
             span.style.fontWeight = isActive ? 'bold' : 'normal';
     
+            // Лайки под миниатюрой
+            const likeSpan = document.createElement('div');
+            likeSpan.innerText = `❤️ ${likeCount || 0}`;
+            likeSpan.style.fontSize = '10px';
+            likeSpan.style.color = '#ff6b6b';
+            likeSpan.style.marginTop = '2px';
+    
             div.appendChild(img);
             div.appendChild(span);
+            div.appendChild(likeSpan);
             return div;
         }
     
@@ -397,6 +431,89 @@
             });
         }
     
+        // --- ЛАЙКИ ---
+        
+        function updateLikeButton(userLiked, likeCount) {
+            const likeIcon = document.getElementById('likeIcon');
+            const likeCountElem = document.getElementById('likeCount');
+            
+            likeIcon.innerText = userLiked ? '❤️' : '🤍';
+            likeCountElem.innerText = likeCount || 0;
+        }
+        
+        function toggleLike() {
+            if (!currentUserId) {
+                alert('Войдите, чтобы ставить лайки');
+                return;
+            }
+            
+            const endpoint = currentContext === 'pub' 
+                ? `/toggle_pub_like/${activeObjectId}` 
+                : `/toggle_remix_like/${activeObjectId}`;
+            
+            fetch(endpoint, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    updateLikeButton(data.liked, data.like_count);
+                    
+                    // Обновляем данные в originalPostData
+                    if (currentContext === 'pub') {
+                        originalPostData.user_liked = data.liked;
+                        originalPostData.like_count = data.like_count;
+                    } else {
+                        // Находим ремикс и обновляем его данные
+                        const remix = originalPostData.remixes.find(r => r.id === activeObjectId);
+                        if (remix) {
+                            remix.user_liked = data.liked;
+                            remix.like_count = data.like_count;
+                        }
+                    }
+                    
+                    // Перерисовываем список ремиксов для обновления счетчиков
+                    renderRemixList(originalPostData.remixes, currentContext === 'remix' ? activeObjectId : null);
+                });
+        }
+        
+        // --- ПРОКРУТКА РЕМИКСОВ ---
+        
+        function updateScrollButtons() {
+            const remixList = document.getElementById('remixList');
+            const leftBtn = document.getElementById('scrollLeftBtn');
+            const rightBtn = document.getElementById('scrollRightBtn');
+            
+            // Показываем кнопки только если элементов больше 4 (оригинал + ремиксы)
+            const totalItems = remixList.children.length;
+            if (totalItems > 4) {
+                leftBtn.style.display = 'block';
+                rightBtn.style.display = 'block';
+                
+                // Динамически показываем/скрываем кнопки в зависимости от позиции прокрутки
+                const maxScroll = remixList.scrollWidth - remixList.clientWidth;
+                leftBtn.style.opacity = remixList.scrollLeft > 0 ? '1' : '0.3';
+                rightBtn.style.opacity = remixList.scrollLeft < maxScroll - 1 ? '1' : '0.3';
+            } else {
+                leftBtn.style.display = 'none';
+                rightBtn.style.display = 'none';
+            }
+        }
+        
+        function scrollRemixes(direction) {
+            const remixList = document.getElementById('remixList');
+            const scrollAmount = 200;
+            remixList.scrollLeft += scrollAmount * direction;
+            
+            // Обновляем кнопки после прокрутки (с небольшой задержкой для плавной анимации)
+            setTimeout(updateScrollButtons, 100);
+        }
+        
+        // Добавляем обработчик события прокрутки для обновления кнопок
+        document.addEventListener('DOMContentLoaded', function() {
+            const remixList = document.getElementById('remixList');
+            if (remixList) {
+                remixList.addEventListener('scroll', updateScrollButtons);
+            }
+        });
+    
         document.querySelector('.close-modal').onclick = () => {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
@@ -408,6 +525,29 @@
                 document.body.style.overflow = 'auto';
             }
         };
+        
+        // Открытие модала из URL параметров (после сохранения ремикса)
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const postId = urlParams.get('open_post');
+            const remixId = urlParams.get('open_remix');
+            
+            if (postId) {
+                openPost(parseInt(postId));
+                
+                // После загрузки, если указан ремикс, открываем его
+                if (remixId) {
+                    setTimeout(() => {
+                        const remixIdNum = parseInt(remixId);
+                        const remix = originalPostData?.remixes?.find(r => r.id === remixIdNum);
+                        if (remix) {
+                            switchToRemixView(remix);
+                        }
+                    }, 500);
+                }
+            }
+        });
+    
     </script>
 </body>
 </html>
