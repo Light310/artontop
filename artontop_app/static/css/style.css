@@ -891,6 +891,35 @@ a.btn-more {
     font-size: 18px;
 }
 
+/* Кнопка подписки */
+.btn-subscribe {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #7E7482, #9b8ca3);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(126, 116, 130, 0.3);
+}
+
+.btn-subscribe:hover {
+    background: linear-gradient(135deg, #9b8ca3, #7E7482);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(126, 116, 130, 0.4);
+}
+
+.btn-subscribe[data-subscribed="true"] {
+    background: linear-gradient(135deg, #c4b5c7, #d4c8d8);
+    color: #666;
+}
+
+.btn-subscribe[data-subscribed="true"]:hover {
+    background: linear-gradient(135deg, #d4c8d8, #c4b5c7);
+}
+
 /* Адаптивность профиля */
 @media (max-width: 768px) {
     .profile-header {

@@ -31,7 +31,14 @@
             <img src="{{ url_for('static', filename='uploads/' + user.avatar) if user.avatar != 'default_avatar.svg' else url_for('static', filename='images/default_avatar.svg') }}" alt="{{ user.username }}" onerror="this.src='{{ url_for('static', filename='images/default_avatar.svg') }}'">
         </div>
         <div class="profile-info">
-            <h1 class="profile-username">{{ user.username }}</h1>
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 10px;">
+                <h1 class="profile-username" style="margin: 0;">{{ user.username }}</h1>
+                {% if not is_own_profile %}
+                <button id="subscribeBtn" onclick="toggleSubscribe({{ user.id }})" class="btn-subscribe" data-subscribed="{{ 'true' if is_subscribed else 'false' }}">
+                    {{ 'Отписаться' if is_subscribed else 'Подписаться' }}
+                </button>
+                {% endif %}
+            </div>
             <p class="profile-bio">{{ user.bio if user.bio else 'Нет описания' }}</p>
             <div class="profile-stats">
                 <div class="stat-item">
@@ -39,7 +46,7 @@
                     <span class="stat-label">Рейтинг</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-value">{{ user.subscribers_count }}</span>
+                    <span class="stat-value" id="subscribersCount">{{ user.subscribers_count }}</span>
                     <span class="stat-label">Подписчики</span>
                 </div>
                 <div class="stat-item">
@@ -156,7 +163,7 @@
             const data = originalPostData;
             document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
             document.getElementById('modalTitle').innerText = data.title;
-            document.getElementById('modalAuthor').innerHTML = `<strong>Автор:</strong> <a href="/profile/${data.author_id}" style="color: #7E7482; text-decoration: none;">${data.author}</a>`;
+            document.getElementById('modalAuthor').innerHTML = `<strong>Автор:</strong> <a href="/profile/${data.author_id}" style="color: #7E7482; text-decoration: none;">${data.author_name}</a>`;
             document.getElementById('modalType').innerHTML = `<strong>Тип:</strong> ${data.pub_type}`;
             document.getElementById('modalDescription').innerHTML = `<strong>Описание:</strong> ${data.description || 'Нет описания'}`;
             document.getElementById('modalHashtags').innerHTML = `<strong>Хештеги:</strong> ${data.hashtags || 'Нет хештегов'}`;
@@ -172,7 +179,7 @@
             list.innerHTML = '';
             remixes.forEach(remix => {
                 const isActive = (remix.id === activeRemixId);
-                const thumb = createRemixThumb(remix.image, remix.author, isActive, remix.like_count);
+                const thumb = createRemixThumb(remix.image, remix.author_name, isActive, remix.like_count);
                 thumb.onclick = () => switchToRemixView(remix);
                 list.appendChild(thumb);
             });
@@ -233,7 +240,8 @@
             activeObjectId = remix.id;
             
             document.getElementById('modalImage').src = `/static/uploads/${remix.image}`;
-            document.getElementById('modalTitle').innerText = `Ремикс от ${remix.author}`;
+            document.getElementById('modalTitle').innerText = `Ремикс от ${remix.author_name}`;
+            document.getElementById('modalAuthor').innerHTML = `<strong>Автор ремикса:</strong> <a href="/profile/${remix.author_id}" style="color: #7E7482; text-decoration: none;">${remix.author_name}</a>`;
             
             updateLikeButton(remix.user_liked, remix.like_count);
             renderRemixList(originalPostData.remixes, remix.id);
@@ -323,6 +331,27 @@
                         location.reload();
                     }
                 });
+        }
+
+        function toggleSubscribe(userId) {
+            fetch(`/subscribe/${userId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                const btn = document.getElementById('subscribeBtn');
+                btn.textContent = data.subscribed ? 'Отписаться' : 'Подписаться';
+                btn.setAttribute('data-subscribed', data.subscribed);
+                
+                document.getElementById('subscribersCount').textContent = data.subscribers_count;
+            })
+            .catch(err => console.error('Ошибка подписки:', err));
         }
 
         document.querySelector('.close-modal').onclick = () => {
