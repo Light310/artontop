@@ -28,7 +28,9 @@
                 <span class="btn-reset disabled">Сбросить</span>
             {% endif %}
         </form>
-        <div style="width: 200px;"></div> 
+        <a href="{{ url_for('profile', user_id=session.user_id) }}" class="btn-new-pub-glam" style="background: rgba(255,255,255,0.2); color: white;">
+            👤 Мой профиль
+        </a>
     </header>
 
     <div class="type-tabs">
@@ -98,7 +100,9 @@
                 
                 <div class="modal-info">
                     <h1 id="modalTitle" style="margin-top:0; color: #333;"></h1>
-                    <h3 id="modalAuthor" style="color: #7E7482; margin-bottom: 10px;"></h3>
+                    <h3 id="modalAuthor" style="color: #7E7482; margin-bottom: 10px;">
+                        <span>Автор: </span><a id="authorLink" href="#" style="color: #7E7482; text-decoration: none; font-weight: bold;"></a>
+                    </h3>
                     
                     <!-- ЛАЙКИ -->
                     <div id="likeSection" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
@@ -210,7 +214,13 @@
             // Заполнение UI
             document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
             document.getElementById('modalTitle').innerText = data.title || "Без названия";
-            document.getElementById('modalAuthor').innerText = `Автор: ${data.author_name}`;
+            
+            // Восстанавливаем правильную структуру для modalAuthor
+            const modalAuthor = document.getElementById('modalAuthor');
+            modalAuthor.innerHTML = '<span>Автор: </span><a id="authorLink" href="#" style="color: #7E7482; text-decoration: none; font-weight: bold;"></a>';
+            document.getElementById('authorLink').innerText = data.author_name;
+            document.getElementById('authorLink').href = `/profile/${data.author_id}`;
+            
             document.getElementById('modalDesc').innerText = data.description;
             document.getElementById('modalTags').innerText = data.hashtags;
             document.getElementById('btnRemix').href = `/editor/${data.id}`;
@@ -253,7 +263,13 @@
     
             document.getElementById('modalImage').src = `/static/uploads/${remix.image}`;
             document.getElementById('modalTitle').innerText = "Ремикс";
-            document.getElementById('modalAuthor').innerText = `Автор ремикса: ${remix.author_name}`;
+            
+            // Восстанавливаем правильную структуру для modalAuthor
+            const modalAuthor = document.getElementById('modalAuthor');
+            modalAuthor.innerHTML = '<span>Автор ремикса: </span><a id="authorLink" href="#" style="color: #7E7482; text-decoration: none; font-weight: bold;"></a>';
+            document.getElementById('authorLink').innerText = remix.author_name;
+            document.getElementById('authorLink').href = `/profile/${remix.author_id}`;
+            
             document.getElementById('modalDesc').innerText = `Дата: ${remix.date}`;
             document.getElementById('modalTags').innerText = ""; // У ремиксов нет тегов
             
@@ -382,7 +398,7 @@
                 data.comments.forEach(c => {
                     const p = document.createElement('p');
                     p.style.margin = '5px 0';
-                    p.innerHTML = `<b>${c.author}</b>: ${c.text} <span style="color:#aaa; font-size:10px;">${c.date}</span>`;
+                    p.innerHTML = `<b><a href="/profile/${c.author_id}" style="color: #7E7482; text-decoration: none;">${c.author}</a></b>: ${c.text} <span style="color:#aaa; font-size:10px;">${c.date}</span>`;
                     list.appendChild(p);
                 });
                 list.scrollTop = list.scrollHeight;

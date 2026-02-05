@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <title>{{ user.username }} - Профиль</title>
+</head>
+<body class="bg-home">
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <!-- Навигационная шапка -->
+    <header class="top-header">
+        <a href="{{ url_for('home') }}" class="btn-new-pub-glam" style="background: rgba(255,255,255,0.2); color: white;">
+            ← На главную
+        </a>
+        <div style="flex: 1;"></div>
+        {% if is_own_profile %}
+        <a href="{{ url_for('edit_profile') }}" class="btn-new-pub-glam">
+            Редактировать профиль
+        </a>
+        {% endif %}
+    </header>
+
+    <!-- Шапка профиля -->
+    <div class="profile-header">
+        <div class="profile-avatar">
+            <img src="{{ url_for('static', filename='uploads/' + user.avatar) if user.avatar != 'default_avatar.svg' else url_for('static', filename='images/default_avatar.svg') }}" alt="{{ user.username }}" onerror="this.src='{{ url_for('static', filename='images/default_avatar.svg') }}'">
+        </div>
+        <div class="profile-info">
+            <h1 class="profile-username">{{ user.username }}</h1>
+            <p class="profile-bio">{{ user.bio if user.bio else 'Нет описания' }}</p>
+            <div class="profile-stats">
+                <div class="stat-item">
+                    <span class="stat-value">{{ user.rating }}</span>
+                    <span class="stat-label">Рейтинг</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ user.subscribers_count }}</span>
+                    <span class="stat-label">Подписчики</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value">{{ publications|length }}</span>
+                    <span class="stat-label">Публикации</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Вкладки типов контента -->
+    <div class="type-tabs">
+        <a href="{{ url_for('profile', user_id=user.id, pub_type='Все типы') }}" class="tab-item {{ 'active' if active_type == 'Все типы' }}">Все типы</a>
+        {% for t in content_types %}
+        <a href="{{ url_for('profile', user_id=user.id, pub_type=t) }}" class="tab-item {{ 'active' if active_type == t }}">{{ t }}</a>
+        {% endfor %}
+    </div>
+
+    <!-- Публикации -->
+    <div class="feed-container">
+        {% if publications %}
+            <div class="grid-layout">
+                {% for pub in publications %}
+                <div class="grid-item art-item" onclick="openPost({{ pub.id }})">
+                    <img src="{{ url_for('static', filename='uploads/' + pub.image) }}" alt="{{ pub.title }}">
+                    {% if pub.pinned %}
+                    <div class="pinned-badge">📌 Закреплено</div>
+                    {% endif %}
+                    {% if is_own_profile %}
+                    <button class="pin-toggle-btn" onclick="event.stopPropagation(); togglePin({{ pub.id }}, this)">
+                        {{ '📌' if pub.pinned else '📍' }}
+                    </button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>Пока нет публикаций</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Модальное окно для публикации (копируем из home.html) -->
+    <div id="postModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div class="modal-body">
+                <div class="modal-image-container">
+                    <img id="modalImage" src="" alt="">
+                </div>
+                <div class="modal-info">
+                    <h2 id="modalTitle"></h2>
+                    <p id="modalAuthor"></p>
+                    <p id="modalType"></p>
+                    <p id="modalDescription"></p>
+                    <p id="modalHashtags"></p>
+                    
+                    <!-- Лайки -->
+                    <div style="display: flex; align-items: center; gap: 15px; margin: 20px 0;">
+                        <button class="btn-like" onclick="toggleLike()" id="likeBtn">♡</button>
+                        <span id="likeCount" style="font-size: 18px; font-weight: bold;">0</span>
+                    </div>
+
+                    <!-- Комментарии -->
+                    <div style="margin-top: 30px;">
+                        <h3>Комментарии</h3>
+                        <div id="commentsList" class="scrollable-info"></div>
+                        <div style="margin-top: 15px;">
+                            <textarea id="commentText" placeholder="Написать комментарий..." style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc;"></textarea>
+                            <button onclick="sendComment()" style="margin-top: 10px; padding: 10px 20px; background: #7E7482; color: white; border: none; border-radius: 8px; cursor: pointer;">Отправить</button>
+                        </div>
+                    </div>
+
+                    <!-- Ремиксы -->
+                    <div style="margin-top: 30px;">
+                        <h3>Ремиксы</h3>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button class="remix-scroll-btn" onclick="scrollRemixes(-1)">‹</button>
+                            <div id="remixList" style="display: flex; gap: 10px; overflow-x: auto; flex: 1;"></div>
+                            <button class="remix-scroll-btn" onclick="scrollRemixes(1)">›</button>
+                        </div>
+                        <a href="#" id="createRemixBtn" class="btn-black" style="margin-top: 15px; display: inline-block; text-decoration: none; text-align: center;">Создать ремикс</a>
+                    </div>
+
+                    {% if is_own_profile %}
+                    <button onclick="deletePost()" class="delete-btn" style="margin-top: 20px;">Удалить публикацию</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('postModal');
+        let currentContext = 'pub';
+        let originalPostData = null;
+        let activeObjectId = null;
+        let currentUserId = {{ session.user_id }};
+
+        function openPost(id) {
+            fetch(`/get_post/${id}`)
+                .then(r => r.json())
+                .then(data => {
+                    originalPostData = data;
+                    activeObjectId = id;
+                    currentContext = 'pub';
+                    renderOriginalView();
+                    modal.style.display = 'block';
+                });
+        }
+
+        function renderOriginalView() {
+            const data = originalPostData;
+            document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
+            document.getElementById('modalTitle').innerText = data.title;
+            document.getElementById('modalAuthor').innerHTML = `<strong>Автор:</strong> <a href="/profile/${data.author_id}" style="color: #7E7482; text-decoration: none;">${data.author}</a>`;
+            document.getElementById('modalType').innerHTML = `<strong>Тип:</strong> ${data.pub_type}`;
+            document.getElementById('modalDescription').innerHTML = `<strong>Описание:</strong> ${data.description || 'Нет описания'}`;
+            document.getElementById('modalHashtags').innerHTML = `<strong>Хештеги:</strong> ${data.hashtags || 'Нет хештегов'}`;
+            document.getElementById('createRemixBtn').href = `/editor/${data.id}`;
+            
+            updateLikeButton(data.user_liked, data.like_count);
+            renderRemixList(data.remixes, null);
+            loadComments('pub', data.id);
+        }
+
+        function renderRemixList(remixes, activeRemixId) {
+            const list = document.getElementById('remixList');
+            list.innerHTML = '';
+            remixes.forEach(remix => {
+                const isActive = (remix.id === activeRemixId);
+                const thumb = createRemixThumb(remix.image, remix.author, isActive, remix.like_count);
+                thumb.onclick = () => switchToRemixView(remix);
+                list.appendChild(thumb);
+            });
+        }
+
+        function createRemixThumb(imageName, label, isActive, likeCount) {
+            const div = document.createElement('div');
+            div.style.cssText = `
+                position: relative;
+                flex: 0 0 100px;
+                height: 100px;
+                border-radius: 8px;
+                overflow: hidden;
+                cursor: pointer;
+                border: ${isActive ? '3px solid #ff9a9e' : '2px solid #ddd'};
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            `;
+            const img = document.createElement('img');
+            img.src = `/static/uploads/${imageName}`;
+            img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+            
+            const labelDiv = document.createElement('div');
+            labelDiv.innerText = label;
+            labelDiv.style.cssText = `
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: rgba(0,0,0,0.7);
+                color: white;
+                padding: 5px;
+                font-size: 10px;
+                text-align: center;
+            `;
+            
+            const likeDiv = document.createElement('div');
+            likeDiv.innerText = `♥ ${likeCount}`;
+            likeDiv.style.cssText = `
+                position: absolute;
+                top: 5px;
+                right: 5px;
+                background: rgba(255,255,255,0.9);
+                color: #ff9a9e;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: bold;
+            `;
+            
+            div.appendChild(img);
+            div.appendChild(labelDiv);
+            div.appendChild(likeDiv);
+            return div;
+        }
+
+        function switchToRemixView(remix) {
+            currentContext = 'remix';
+            activeObjectId = remix.id;
+            
+            document.getElementById('modalImage').src = `/static/uploads/${remix.image}`;
+            document.getElementById('modalTitle').innerText = `Ремикс от ${remix.author}`;
+            
+            updateLikeButton(remix.user_liked, remix.like_count);
+            renderRemixList(originalPostData.remixes, remix.id);
+            loadComments('remix', remix.id);
+        }
+
+        function loadComments(type, id) {
+            const url = type === 'pub' ? `/get_pub_comments/${id}` : `/get_remix_comments/${id}`;
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('commentsList');
+                    list.innerHTML = '';
+                    data.comments.forEach(c => {
+                        const div = document.createElement('div');
+                        div.style.cssText = 'margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 8px;';
+                        div.innerHTML = `
+                            <strong><a href="/profile/${c.author_id}" style="color: #7E7482; text-decoration: none;">${c.author}</a>:</strong> ${c.text}
+                            <br><small style="color: #999;">${c.created_at}</small>
+                        `;
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        function sendComment() {
+            const text = document.getElementById('commentText').value.trim();
+            if (!text) return;
+            
+            const url = currentContext === 'pub' ? '/add_pub_comment' : '/add_remix_comment';
+            const key = currentContext === 'pub' ? 'pub_id' : 'remix_id';
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({[key]: activeObjectId, text: text})
+            })
+            .then(r => r.json())
+            .then(() => {
+                document.getElementById('commentText').value = '';
+                loadComments(currentContext, activeObjectId);
+            });
+        }
+
+        function updateLikeButton(userLiked, likeCount) {
+            const btn = document.getElementById('likeBtn');
+            btn.innerHTML = userLiked ? '♥' : '♡';
+            btn.style.color = userLiked ? '#ff9a9e' : '#666';
+            document.getElementById('likeCount').innerText = likeCount;
+        }
+
+        function toggleLike() {
+            const url = currentContext === 'pub' ? `/toggle_pub_like/${activeObjectId}` : `/toggle_remix_like/${activeObjectId}`;
+            
+            fetch(url, {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    updateLikeButton(data.liked, data.like_count);
+                    if (currentContext === 'remix') {
+                        const remix = originalPostData.remixes.find(r => r.id === activeObjectId);
+                        if (remix) remix.like_count = data.like_count;
+                        renderRemixList(originalPostData.remixes, activeObjectId);
+                    }
+                });
+        }
+
+        function scrollRemixes(direction) {
+            const list = document.getElementById('remixList');
+            list.scrollLeft += direction * 120;
+        }
+
+        function deletePost() {
+            if (!confirm('Удалить эту публикацию?')) return;
+            
+            fetch(`/delete/${activeObjectId}`)
+                .then(() => {
+                    modal.style.display = 'none';
+                    location.reload();
+                });
+        }
+
+        function togglePin(postId, btn) {
+            fetch(`/pin_post/${postId}`, {method: 'POST'})
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    }
+                });
+        }
+
+        document.querySelector('.close-modal').onclick = () => {
+            modal.style.display = 'none';
+        };
+
+        window.onclick = (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>

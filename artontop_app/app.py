@@ -31,6 +31,10 @@ class User(db.Model):
     username = db.Column(db.String(80))
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
+    avatar = db.Column(db.String(200), default='default_avatar.svg')
+    bio = db.Column(db.Text, nullable=True)
+    rating = db.Column(db.Integer, default=0)
+    subscribers_count = db.Column(db.Integer, default=0)
 
 class Publication(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,6 +44,8 @@ class Publication(db.Model):
     pub_type = db.Column(db.String(50)) 
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     title = db.Column(db.String(100))
+    pinned = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Remix(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -117,7 +123,12 @@ def register():
         if User.query.filter_by(email=email).first():
             return "Email exists!"
         hashed_pw = generate_password_hash(request.form['password'])
-        new_user = User(username=request.form['name'], email=email, password=hashed_pw)
+        new_user = User(
+            username=request.form['name'], 
+            email=email, 
+            password=hashed_pw,
+            avatar='default_avatar.svg'
+        )
         db.session.add(new_user)
         db.session.commit()
         return redirect(url_for('login'))
@@ -256,7 +267,9 @@ def get_post(id):
         'description': pub.description,
         'hashtags': pub.hashtags,
         'pub_type': pub.pub_type,
+        'title': pub.title,
         'author_name': author.username if author else "Unknown",
+        'author_id': pub.author_id,
         'is_owner': pub.author_id == session.get('user_id'),
         'current_user_id': session.get('user_id'),
         'remixes': remixes_list,
@@ -369,6 +382,7 @@ def get_remix_comments(remix_id):
     for c in comments:
         result.append({
             'author': c.author.username,
+            'author_id': c.author.id,
             'text': c.text,
             'date': c.created_at.strftime('%d.%m.%Y %H:%M')
         })
@@ -410,6 +424,7 @@ def get_pub_comments(pub_id):
     for c in comments:
         result.append({
             'author': c.author.username,
+            'author_id': c.author.id,
             'text': c.text,
             'date': c.created_at.strftime('%d.%m.%Y %H:%M')
         })
@@ -466,6 +481,83 @@ def toggle_remix_like(remix_id):
     like_count = RemixLike.query.filter_by(remix_id=remix_id).count()
     
     return jsonify({'liked': liked, 'like_count': like_count})
+
+# --- PROFILE ROUTES ---
+
+@app.route('/profile/<int:user_id>')
+def profile(user_id):
+    if 'user_id' not in session:
+        return redirect(url_for('auth'))
+    
+    # Получаем информацию о пользователе
+    user = User.query.get_or_404(user_id)
+    current_user_id = session['user_id']
+    is_own_profile = (current_user_id == user_id)
+    
+    # Получаем фильтр по типу (если есть)
+    pub_type_filter = request.args.get('pub_type', 'Все типы')
+    
+    # Получаем публикации пользователя
+    query = Publication.query.filter_by(author_id=user_id)
+    
+    if pub_type_filter != 'Все типы':
+        query = query.filter_by(pub_type=pub_type_filter)
+    
+    # Сортировка: закрепленные вверху, затем по дате (новые первые)
+    publications = query.order_by(Publication.pinned.desc(), Publication.created_at.desc()).all()
+    
+    return render_template('profile.html', 
+                         user=user, 
+                         publications=publications,
+                         is_own_profile=is_own_profile,
+                         active_type=pub_type_filter,
+                         content_types=CONTENT_TYPES)
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        return redirect(url_for('auth'))
+    
+    user = User.query.get_or_404(session['user_id'])
+    
+    if request.method == 'POST':
+        user.username = request.form.get('username', user.username)
+        user.bio = request.form.get('bio', user.bio)
+        
+        # Обработка аватарки
+        if 'avatar' in request.files:
+            file = request.files['avatar']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                timestamp = str(int(time.time()))
+                filename = f"avatar_{user.id}_{timestamp}_{filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                user.avatar = filename
+        
+        db.session.commit()
+        flash('Профиль успешно обновлен!', 'success')
+        return redirect(url_for('profile', user_id=user.id))
+    
+    return render_template('edit_profile.html', user=user)
+
+@app.route('/pin_post/<int:post_id>', methods=['POST'])
+def pin_post(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authorized'}), 401
+    
+    user_id = session['user_id']
+    post = Publication.query.get_or_404(post_id)
+    
+    # Проверяем, что это публикация текущего пользователя
+    if post.author_id != user_id:
+        return jsonify({'error': 'Not your post'}), 403
+    
+    # Переключаем статус закрепления
+    post.pinned = not post.pinned
+    db.session.commit()
+    
+    return jsonify({'success': True, 'pinned': post.pinned})
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

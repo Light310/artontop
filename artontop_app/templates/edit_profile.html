@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}" type="image/x-icon">
+    <title>Редактирование профиля</title>
+</head>
+<body class="bg-home">
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="screen" style="justify-content: flex-start; padding-top: 50px; overflow-y: auto;">
+        <div class="form-container" style="background: rgba(255,255,255,0.95); padding: 40px; border-radius: 20px; max-width: 600px; width: 90%;">
+            <h1 class="title-black" style="font-size: 32px; margin-bottom: 30px; text-align: center;">Редактирование профиля</h1>
+            
+            <form method="POST" enctype="multipart/form-data">
+                <!-- Текущая аватарка -->
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div class="current-avatar-preview">
+                        <img id="avatarPreview" src="{{ url_for('static', filename='uploads/' + user.avatar) if user.avatar != 'default_avatar.svg' else url_for('static', filename='images/default_avatar.svg') }}" alt="Avatar" onerror="this.src='{{ url_for('static', filename='images/default_avatar.svg') }}'">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Имя пользователя</label>
+                    <input type="text" name="username" value="{{ user.username }}" required class="input-field">
+                </div>
+
+                <div class="form-group">
+                    <label>Описание профиля</label>
+                    <textarea name="bio" rows="4" placeholder="Расскажите о себе..." class="input-field">{{ user.bio if user.bio else '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Изменить аватарку</label>
+                    <input type="file" name="avatar" accept="image/*" onchange="previewAvatar(this)">
+                </div>
+
+                <button type="submit" class="btn-new-pub-glam" style="width:100%; border:none; cursor:pointer; justify-content: center;">Сохранить изменения</button>
+            </form>
+            
+            <a href="{{ url_for('profile', user_id=user.id) }}" class="cancel-link">Отмена</a>
+        </div>
+    </div>
+
+    <script>
+        function previewAvatar(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('avatarPreview').src = e.target.result;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+</body>
+</html>
