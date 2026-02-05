@@ -31,6 +31,10 @@ class User(db.Model):
     username = db.Column(db.String(80))
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
+    avatar = db.Column(db.String(200), default='default_avatar.svg')
+    bio = db.Column(db.Text, nullable=True)
+    rating = db.Column(db.Integer, default=0)
+    subscribers_count = db.Column(db.Integer, default=0)
 
 class Publication(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -40,6 +44,8 @@ class Publication(db.Model):
     pub_type = db.Column(db.String(50)) 
     author_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     title = db.Column(db.String(100))
+    pinned = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class Remix(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -99,6 +105,19 @@ class RemixLike(db.Model):
     user = db.relationship('User', backref='remix_likes')
     remix = db.relationship('Remix', backref='likes')
 
+# Модель для подписок
+class Subscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # кто подписывается
+    following_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # на кого подписываются
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Уникальная пара: один пользователь может подписаться на другого только один раз
+    __table_args__ = (db.UniqueConstraint('follower_id', 'following_id', name='_follower_following_uc'),)
+    
+    follower = db.relationship('User', foreign_keys=[follower_id], backref='following')
+    following = db.relationship('User', foreign_keys=[following_id], backref='followers')
+
 with app.app_context():
     db.create_all()
 
@@ -117,7 +136,12 @@ def register():
         if User.query.filter_by(email=email).first():
             return "Email exists!"
         hashed_pw = generate_password_hash(request.form['password'])
-        new_user = User(username=request.form['name'], email=email, password=hashed_pw)
+        new_user = User(
+            username=request.form['name'], 
+            email=email, 
+            password=hashed_pw,
+            avatar='default_avatar.svg'
+        )
         db.session.add(new_user)
         db.session.commit()
         return redirect(url_for('login'))
@@ -143,9 +167,21 @@ def home():
     if 'user_id' not in session:
         return redirect(url_for('auth'))
     
+    current_user_id = session['user_id']
     active_type = request.args.get('pub_type', 'Все типы')
     search_query = request.args.get('search') 
     page = request.args.get('page', 1, type=int)
+    
+    # Получаем подписки текущего пользователя
+    subscriptions = Subscription.query.filter_by(follower_id=current_user_id).all()
+    following_ids = [sub.following_id for sub in subscriptions]
+    
+    # Получаем публикации от тех, на кого подписан пользователь
+    subscribed_pubs = []
+    if following_ids:
+        subscribed_pubs = Publication.query.filter(
+            Publication.author_id.in_(following_ids)
+        ).order_by(Publication.created_at.desc()).limit(20).all()
     
     query = Publication.query
     if active_type != 'Все типы':
@@ -162,7 +198,8 @@ def home():
                                pubs=pagination.items, 
                                search_query=search_query, 
                                active_type=active_type,
-                               next_page=page+1 if pagination.has_next else None)
+                               next_page=page+1 if pagination.has_next else None,
+                               subscribed_pubs=[])
 
     all_pubs = query.order_by(Publication.id.desc()).all()
     
@@ -179,7 +216,8 @@ def home():
                            all_pubs=all_pubs, 
                            top_tags=top_tags, 
                            active_type=active_type,
-                           search_query=None)
+                           search_query=None,
+                           subscribed_pubs=subscribed_pubs)
 
 @app.route('/publish', methods=['GET', 'POST'])
 def create_pub():
@@ -226,6 +264,14 @@ def get_post(id):
     if current_user_id:
         pub_user_liked = PublicationLike.query.filter_by(pub_id=pub.id, user_id=current_user_id).first() is not None
     
+    # Проверка подписки на автора публикации
+    is_subscribed_to_author = False
+    if current_user_id and current_user_id != pub.author_id:
+        is_subscribed_to_author = Subscription.query.filter_by(
+            follower_id=current_user_id,
+            following_id=pub.author_id
+        ).first() is not None
+    
     remixes_list = []
     remixes = Remix.query.filter_by(original_pub_id=pub.id).all()
     
@@ -237,6 +283,14 @@ def get_post(id):
         if current_user_id:
             remix_user_liked = RemixLike.query.filter_by(remix_id=r.id, user_id=current_user_id).first() is not None
         
+        # Проверка подписки на автора ремикса
+        is_subscribed_to_remix_author = False
+        if current_user_id and current_user_id != r.author_id:
+            is_subscribed_to_remix_author = Subscription.query.filter_by(
+                follower_id=current_user_id,
+                following_id=r.author_id
+            ).first() is not None
+        
         remixes_list.append({
             'id': r.id,
             'image': r.image,
@@ -244,7 +298,8 @@ def get_post(id):
             'author_id': r.author_id,
             'date': r.created_at.strftime('%d.%m.%Y'),
             'like_count': remix_like_count,
-            'user_liked': remix_user_liked
+            'user_liked': remix_user_liked,
+            'is_subscribed': is_subscribed_to_remix_author
         })
     
     # Сортируем ремиксы по количеству лайков (от большего к меньшему)
@@ -256,12 +311,15 @@ def get_post(id):
         'description': pub.description,
         'hashtags': pub.hashtags,
         'pub_type': pub.pub_type,
+        'title': pub.title,
         'author_name': author.username if author else "Unknown",
+        'author_id': pub.author_id,
         'is_owner': pub.author_id == session.get('user_id'),
         'current_user_id': session.get('user_id'),
         'remixes': remixes_list,
         'like_count': pub_like_count,
-        'user_liked': pub_user_liked
+        'user_liked': pub_user_liked,
+        'is_subscribed': is_subscribed_to_author
     })
 
 @app.route('/edit/<int:id>', methods=['POST'])
@@ -369,6 +427,7 @@ def get_remix_comments(remix_id):
     for c in comments:
         result.append({
             'author': c.author.username,
+            'author_id': c.author.id,
             'text': c.text,
             'date': c.created_at.strftime('%d.%m.%Y %H:%M')
         })
@@ -410,6 +469,7 @@ def get_pub_comments(pub_id):
     for c in comments:
         result.append({
             'author': c.author.username,
+            'author_id': c.author.id,
             'text': c.text,
             'date': c.created_at.strftime('%d.%m.%Y %H:%M')
         })
@@ -466,6 +526,134 @@ def toggle_remix_like(remix_id):
     like_count = RemixLike.query.filter_by(remix_id=remix_id).count()
     
     return jsonify({'liked': liked, 'like_count': like_count})
+
+# --- PROFILE ROUTES ---
+
+@app.route('/profile/<int:user_id>')
+def profile(user_id):
+    if 'user_id' not in session:
+        return redirect(url_for('auth'))
+    
+    # Получаем информацию о пользователе
+    user = User.query.get_or_404(user_id)
+    current_user_id = session['user_id']
+    is_own_profile = (current_user_id == user_id)
+    
+    # Проверяем, подписан ли текущий пользователь на этого пользователя
+    is_subscribed = False
+    if not is_own_profile:
+        is_subscribed = Subscription.query.filter_by(
+            follower_id=current_user_id,
+            following_id=user_id
+        ).first() is not None
+    
+    # Получаем фильтр по типу (если есть)
+    pub_type_filter = request.args.get('pub_type', 'Все типы')
+    
+    # Получаем публикации пользователя
+    query = Publication.query.filter_by(author_id=user_id)
+    
+    if pub_type_filter != 'Все типы':
+        query = query.filter_by(pub_type=pub_type_filter)
+    
+    # Сортировка: закрепленные вверху, затем по дате (новые первые)
+    publications = query.order_by(Publication.pinned.desc(), Publication.created_at.desc()).all()
+    
+    return render_template('profile.html', 
+                         user=user, 
+                         publications=publications,
+                         is_own_profile=is_own_profile,
+                         is_subscribed=is_subscribed,
+                         active_type=pub_type_filter,
+                         content_types=CONTENT_TYPES)
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        return redirect(url_for('auth'))
+    
+    user = User.query.get_or_404(session['user_id'])
+    
+    if request.method == 'POST':
+        user.username = request.form.get('username', user.username)
+        user.bio = request.form.get('bio', user.bio)
+        
+        # Обработка аватарки
+        if 'avatar' in request.files:
+            file = request.files['avatar']
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                timestamp = str(int(time.time()))
+                filename = f"avatar_{user.id}_{timestamp}_{filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                user.avatar = filename
+        
+        db.session.commit()
+        flash('Профиль успешно обновлен!', 'success')
+        return redirect(url_for('profile', user_id=user.id))
+    
+    return render_template('edit_profile.html', user=user)
+
+@app.route('/pin_post/<int:post_id>', methods=['POST'])
+def pin_post(post_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authorized'}), 401
+    
+    user_id = session['user_id']
+    post = Publication.query.get_or_404(post_id)
+    
+    # Проверяем, что это публикация текущего пользователя
+    if post.author_id != user_id:
+        return jsonify({'error': 'Not your post'}), 403
+    
+    # Переключаем статус закрепления
+    post.pinned = not post.pinned
+    db.session.commit()
+    
+    return jsonify({'success': True, 'pinned': post.pinned})
+
+@app.route('/subscribe/<int:user_id>', methods=['POST'])
+def subscribe(user_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    current_user_id = session['user_id']
+    
+    # Нельзя подписаться на самого себя
+    if current_user_id == user_id:
+        return jsonify({'error': 'Cannot subscribe to yourself'}), 400
+    
+    # Проверяем существование пользователя
+    target_user = User.query.get_or_404(user_id)
+    
+    # Проверяем, есть ли уже подписка
+    existing_sub = Subscription.query.filter_by(
+        follower_id=current_user_id,
+        following_id=user_id
+    ).first()
+    
+    if existing_sub:
+        # Отписываемся
+        db.session.delete(existing_sub)
+        target_user.subscribers_count = max(0, target_user.subscribers_count - 1)
+        db.session.commit()
+        subscribed = False
+    else:
+        # Подписываемся
+        new_sub = Subscription(
+            follower_id=current_user_id,
+            following_id=user_id
+        )
+        db.session.add(new_sub)
+        target_user.subscribers_count += 1
+        db.session.commit()
+        subscribed = True
+    
+    return jsonify({
+        'subscribed': subscribed,
+        'subscribers_count': target_user.subscribers_count
+    })
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

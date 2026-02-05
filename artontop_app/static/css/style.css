@@ -757,3 +757,188 @@ a.btn-more {
 #remixList::-webkit-scrollbar-thumb:hover {
     background: #7E7482;
 }
+
+/* --- PROFILE STYLES --- */
+
+/* Шапка профиля */
+.profile-header {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 40px;
+    margin: 30px auto;
+    max-width: 1200px;
+    width: 90%;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.profile-avatar {
+    flex-shrink: 0;
+}
+
+.profile-avatar img {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 5px solid #C4B5C7;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.profile-info {
+    flex: 1;
+}
+
+.profile-username {
+    font-size: 36px;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 15px 0;
+}
+
+.profile-bio {
+    font-size: 16px;
+    color: #666;
+    line-height: 1.6;
+    margin: 0 0 25px 0;
+    max-width: 600px;
+}
+
+.profile-stats {
+    display: flex;
+    gap: 40px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #7E7482;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* Бейдж закрепленной публикации */
+.pinned-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 154, 158, 0.95);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    z-index: 5;
+}
+
+/* Кнопка закрепления */
+.pin-toggle-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.pin-toggle-btn:hover {
+    background: white;
+    transform: scale(1.1);
+}
+
+/* Превью аватарки в форме редактирования */
+.current-avatar-preview {
+    display: inline-block;
+}
+
+.current-avatar-preview img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid #C4B5C7;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Пустое состояние */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 18px;
+}
+
+/* Кнопка подписки */
+.btn-subscribe {
+    padding: 8px 20px;
+    background: linear-gradient(135deg, #7E7482, #9b8ca3);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(126, 116, 130, 0.3);
+}
+
+.btn-subscribe:hover {
+    background: linear-gradient(135deg, #9b8ca3, #7E7482);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(126, 116, 130, 0.4);
+}
+
+.btn-subscribe[data-subscribed="true"] {
+    background: linear-gradient(135deg, #c4b5c7, #d4c8d8);
+    color: #666;
+}
+
+.btn-subscribe[data-subscribed="true"]:hover {
+    background: linear-gradient(135deg, #d4c8d8, #c4b5c7);
+}
+
+/* Адаптивность профиля */
+@media (max-width: 768px) {
+    .profile-header {
+        flex-direction: column;
+        text-align: center;
+        padding: 30px 20px;
+    }
+    
+    .profile-avatar img {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .profile-username {
+        font-size: 28px;
+    }
+    
+    .profile-stats {
+        justify-content: center;
+        gap: 30px;
+    }
+}

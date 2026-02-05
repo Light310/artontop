@@ -28,7 +28,9 @@
                 <span class="btn-reset disabled">Сбросить</span>
             {% endif %}
         </form>
-        <div style="width: 200px;"></div> 
+        <a href="{{ url_for('profile', user_id=session.user_id) }}" class="btn-new-pub-glam" style="background: rgba(255,255,255,0.2); color: white;">
+            👤 Мой профиль
+        </a>
     </header>
 
     <div class="type-tabs">
@@ -57,6 +59,20 @@
             </div>
             {% endif %}
         {% else %}
+            {% if subscribed_pubs %}
+            <h2 class="row-title">📌 Подписки</h2>
+            <div class="row-wrapper" style="position: relative; display: flex; align-items: center;">
+                <div class="art-bar" id="bar-subscriptions">
+                    {% for pub in subscribed_pubs %}
+                    <div class="art-item" onclick="openPost({{ pub.id }})">
+                        <img src="/static/uploads/{{ pub.image }}" alt="{{ pub.title }}">
+                        <div class="item-overlay">{{ pub.title }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
             <h2 class="row-title">Свежее в категории: {{ active_type }}</h2>
             <div class="row-wrapper" style="position: relative; display: flex; align-items: center;">
                 <div class="art-bar" id="bar-fresh">
@@ -98,7 +114,14 @@
                 
                 <div class="modal-info">
                     <h1 id="modalTitle" style="margin-top:0; color: #333;"></h1>
-                    <h3 id="modalAuthor" style="color: #7E7482; margin-bottom: 10px;"></h3>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <h3 id="modalAuthor" style="color: #7E7482; margin: 0;">
+                            <span>Автор: </span><a id="authorLink" href="#" style="color: #7E7482; text-decoration: none; font-weight: bold;"></a>
+                        </h3>
+                        <button id="modalSubscribeBtn" onclick="toggleModalSubscribe()" class="btn-subscribe" style="display: none; font-size: 12px; padding: 5px 15px;">
+                            Подписаться
+                        </button>
+                    </div>
                     
                     <!-- ЛАЙКИ -->
                     <div id="likeSection" style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
@@ -108,17 +131,20 @@
                         <span id="likeCount" style="font-size: 16px; color: #333; font-weight: bold;">0</span>
                     </div>
                     
+                    <!-- ИНФОРМАЦИЯ О ПУБЛИКАЦИИ/РЕМИКСЕ -->
                     <div class="scrollable-info">
                         <p id="modalDesc" style="line-height: 1.6;"></p>
                         <p id="modalTags" style="color: #7E7482; font-weight: bold; margin-top: 15px;"></p>
+                        <p id="modalType" style="color: #999; font-size: 14px; margin-top: 10px;"></p>
                     </div>
 
                     <button id="btnDeleteRemix" class="delete-btn" style="display:none; margin-top:10px; width:100%; border:none; cursor:pointer;">
                         🗑 Удалить этот ремикс
                     </button>
 
-                    <div id="commentsSection" style="display:none; margin-top:20px; background:#f9f9f9; padding:10px; border-radius:10px;">
-                        <h4 style="margin:0 0 10px 0;">Комментарии</h4>
+                    <!-- КОММЕНТАРИИ -->
+                    <div id="commentsSection" style="margin-top:20px; background:#f9f9f9; padding:10px; border-radius:10px;">
+                        <h4 style="margin:0 0 10px 0;">💬 Комментарии</h4>
                         <div id="commentsList" style="max-height:150px; overflow-y:auto; margin-bottom:10px; font-size:13px;"></div>
                         <div style="display:flex; gap:5px;">
                             <input type="text" id="commentInput" placeholder="Написать..." class="input-field" style="margin:0; font-size:12px;">
@@ -126,19 +152,22 @@
                         </div>
                     </div>
 
+                    <!-- КНОПКА СОЗДАНИЯ РЕМИКСА -->
                     <div style="margin-top: 20px;">
                         <a id="btnRemix" href="#" class="btn-new-pub-glam" style="font-size: 14px; padding: 8px 20px;">
                             <span>🎨</span> Сделать ремикс
                         </a>
                     </div>
 
-                    <div id="remixSection" style="margin-top: 30px; display: none;">
-                        <h3 style="color: #7E7482; border-bottom: 1px solid #ddd; padding-bottom: 5px;">Ремиксы сообщества (по лайкам)</h3>
+                    <!-- СПИСОК РЕМИКСОВ -->
+                    <div id="remixSection" style="margin-top: 30px;">
+                        <h3 style="color: #7E7482; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 15px;">Ремиксы сообщества (по лайкам)</h3>
                         <div style="position: relative; display: flex; align-items: center; justify-content: center;">
                             <button id="scrollLeftBtn" onclick="scrollRemixes(-1)" class="remix-scroll-btn" style="display: none;">‹</button>
                             <div id="remixList" style="display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding: 10px 0; scroll-behavior: smooth; max-width: 400px; scrollbar-width: thin; scrollbar-color: #C4B5C7 #f0f0f0;"></div>
                             <button id="scrollRightBtn" onclick="scrollRemixes(1)" class="remix-scroll-btn" style="display: none;">›</button>
                         </div>
+                        <p id="noRemixesMsg" style="text-align: center; color: #999; padding: 20px 0; display: none;">Пока нет ремиксов. Будьте первым! 🎨</p>
                     </div>
 
                     <div id="ownerControls" class="owner-panel" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 20px;">
@@ -210,9 +239,29 @@
             // Заполнение UI
             document.getElementById('modalImage').src = `/static/uploads/${data.image}`;
             document.getElementById('modalTitle').innerText = data.title || "Без названия";
-            document.getElementById('modalAuthor').innerText = `Автор: ${data.author_name}`;
-            document.getElementById('modalDesc').innerText = data.description;
-            document.getElementById('modalTags').innerText = data.hashtags;
+            
+            // Восстанавливаем правильную структуру для modalAuthor
+            const modalAuthor = document.getElementById('modalAuthor');
+            modalAuthor.innerHTML = '<span>Автор: </span><a id="authorLink" href="#" style="color: #7E7482; text-decoration: none; font-weight: bold;"></a>';
+            document.getElementById('authorLink').innerText = data.author_name;
+            document.getElementById('authorLink').href = `/profile/${data.author_id}`;
+            
+            // Кнопка подписки (показываем только если это не твой пост)
+            const subscribeBtn = document.getElementById('modalSubscribeBtn');
+            if (data.is_owner) {
+                subscribeBtn.style.display = 'none';
+            } else {
+                subscribeBtn.style.display = 'inline-block';
+                subscribeBtn.setAttribute('data-author-id', data.author_id);
+                subscribeBtn.textContent = data.is_subscribed ? 'Отписаться' : 'Подписаться';
+            }
+            
+            // Информация о публикации
+            document.getElementById('modalDesc').innerText = data.description || 'Нет описания';
+            document.getElementById('modalTags').innerText = data.hashtags || '';
+            document.getElementById('modalType').innerText = data.pub_type ? `Тип: ${data.pub_type}` : '';
+            
+            // Кнопка ремикса
             document.getElementById('btnRemix').href = `/editor/${data.id}`;
             document.getElementById('btnRemix').style.display = 'inline-flex';
     
@@ -239,9 +288,6 @@
             // Рендер списка ремиксов (включая иконку оригинала)
             renderRemixList(data.remixes, null); // null значит "активен оригинал"
     
-            // Лайки публикации
-            updateLikeButton(data.user_liked, data.like_count);
-    
             // Загрузка комментариев ОРИГИНАЛА
             loadComments('pub', data.id);
         }
@@ -253,9 +299,27 @@
     
             document.getElementById('modalImage').src = `/static/uploads/${remix.image}`;
             document.getElementById('modalTitle').innerText = "Ремикс";
-            document.getElementById('modalAuthor').innerText = `Автор ремикса: ${remix.author_name}`;
-            document.getElementById('modalDesc').innerText = `Дата: ${remix.date}`;
-            document.getElementById('modalTags').innerText = ""; // У ремиксов нет тегов
+            
+            // Восстанавливаем правильную структуру для modalAuthor
+            const modalAuthor = document.getElementById('modalAuthor');
+            modalAuthor.innerHTML = '<span>Автор ремикса: </span><a id="authorLink" href="#" style="color: #7E7482; text-decoration: none; font-weight: bold;"></a>';
+            document.getElementById('authorLink').innerText = remix.author_name;
+            document.getElementById('authorLink').href = `/profile/${remix.author_id}`;
+            
+            // Кнопка подписки для автора ремикса
+            const subscribeBtn = document.getElementById('modalSubscribeBtn');
+            if (remix.author_id === currentUserId) {
+                subscribeBtn.style.display = 'none';
+            } else {
+                subscribeBtn.style.display = 'inline-block';
+                subscribeBtn.setAttribute('data-author-id', remix.author_id);
+                subscribeBtn.textContent = remix.is_subscribed ? 'Отписаться' : 'Подписаться';
+            }
+            
+            // Информация о ремиксе
+            document.getElementById('modalDesc').innerText = `Ремикс оригинальной публикации "${originalPostData.title}"`;
+            document.getElementById('modalTags').innerText = `Дата создания: ${remix.date}`;
+            document.getElementById('modalType').innerText = '';
             
             // Лайки ремикса
             updateLikeButton(remix.user_liked, remix.like_count);
@@ -281,15 +345,20 @@
         }
     
         function renderRemixList(remixes, activeRemixId) {
-            const remixSection = document.getElementById('remixSection');
             const remixList = document.getElementById('remixList');
+            const noRemixesMsg = document.getElementById('noRemixesMsg');
             remixList.innerHTML = '';
     
-            if ((!remixes || remixes.length === 0) && !activeRemixId) {
-                remixSection.style.display = 'none';
+            if (!remixes || remixes.length === 0) {
+                remixList.style.display = 'none';
+                noRemixesMsg.style.display = 'block';
+                document.getElementById('scrollLeftBtn').style.display = 'none';
+                document.getElementById('scrollRightBtn').style.display = 'none';
                 return;
             }
-            remixSection.style.display = 'block';
+            
+            remixList.style.display = 'flex';
+            noRemixesMsg.style.display = 'none';
     
             // 1. Добавляем карточку "ОРИГИНАЛ" в начало списка
             const origDiv = createRemixThumb(
@@ -363,9 +432,7 @@
         // --- ЛОГИКА КОММЕНТАРИЕВ (Универсальная) ---
         
         function loadComments(type, id) {
-            const section = document.getElementById('commentsSection');
             const list = document.getElementById('commentsList');
-            section.style.display = 'block';
             list.innerHTML = 'Загрузка...';
             
             // Выбираем URL в зависимости от типа (публикация или ремикс)
@@ -382,7 +449,7 @@
                 data.comments.forEach(c => {
                     const p = document.createElement('p');
                     p.style.margin = '5px 0';
-                    p.innerHTML = `<b>${c.author}</b>: ${c.text} <span style="color:#aaa; font-size:10px;">${c.date}</span>`;
+                    p.innerHTML = `<b><a href="/profile/${c.author_id}" style="color: #7E7482; text-decoration: none;">${c.author}</a></b>: ${c.text} <span style="color:#aaa; font-size:10px;">${c.date}</span>`;
                     list.appendChild(p);
                 });
                 list.scrollTop = list.scrollHeight;
@@ -525,7 +592,27 @@
                 document.body.style.overflow = 'auto';
             }
         };
-        
+        function toggleModalSubscribe() {
+            const btn = document.getElementById('modalSubscribeBtn');
+            const authorId = btn.getAttribute('data-author-id');
+            
+            if (!authorId) return;
+            
+            fetch(`/subscribe/${authorId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                btn.textContent = data.subscribed ? 'Отписаться' : 'Подписаться';
+            })
+            .catch(err => console.error('Ошибка подписки:', err));
+        }        
         // Открытие модала из URL параметров (после сохранения ремикса)
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
